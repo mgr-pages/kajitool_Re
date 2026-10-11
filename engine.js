@@ -1162,6 +1162,44 @@ function ldpQNoUndo(mix, x, ti, p, F, cfg){
   }
   return best < 0 ? 0 : best;
 }
+// 総当たりの表の混ぜ合わせ(mix)で手を選ぶ(lastMassMove・twoMassMove)。大成功の確率が一番高い手を選び、同点(差が LDP_TIE 以内)の
+// 手が複数あれば、許される誤差を1ずつ減らした表で比べ直して、より確実な手を選ぶ(利用者の指示 2026-10-11)。
+//   例: 先に仕上げたマスの誤差が小さく、残り1マスがゾーンのどこに入っても大成功になる局面(超ようせいのひだね、残り5・750℃)では、
+//   てかげん打ちと弱ねらい打ちがどちらも100%で同点になり、以前は手の並び順でてかげん打ちを選んでいた。最後の一打の後に残る集中力は
+//   使い道が無いので、同点なら誤差が小さくなる手(会心で理想値に止まる見込みが高い手)の方が、理想値の見込みや前提がずれた時の保険になる。
+// mkMix(d) は許される誤差を d 減らした表の混ぜ合わせ(どの成分も負になれば null)。null を渡すと比べ直さない(先読みの試行の中)。
+// 比べ直しても決まらなければ、これまでどおり並び順で先の手。
+const LDP_TIE = 2 / LDP_SCALE;          // 表の値は 1/65535 刻みなので、2刻みまでの差は同点とみなす
+function ldpPick(mix, ti, p, F, cfg, mod, mkMix){
+  const n = mix[0].tb.acts.length;
+  const qOf = (mx, x) => {
+    if(!mod) return ldpQNoUndo(mx, x, ti, p, F, cfg);
+    let q = 0;
+    for(const e of mx){ const v = ldpQM(e.tb, e.tb.acts[x], ti, p, F); if(v < 0) return -1; q += e.w * v; }
+    return q;
+  };
+  const q0 = new Array(n).fill(-1);
+  let best = -1, bq = 0;
+  for(let x = 0; x < n; x++){
+    if(undoesPrev(mix[0].tb.acts[x].sk, cfg)) continue;
+    q0[x] = qOf(mix, x);
+    if(q0[x] > bq){ bq = q0[x]; best = x; }
+  }
+  if(best < 0) return null;
+  let cand = [];
+  for(let x = 0; x < n; x++) if(q0[x] > 0 && q0[x] >= bq - LDP_TIE) cand.push(x);
+  for(let d = 1; cand.length > 1 && mkMix; d++){
+    const mx = mkMix(d);
+    if(!mx) break;
+    const qs = cand.map(x => qOf(mx, x));
+    const top = Math.max(...qs);
+    if(!(top > 0)) break;                  // 厳しくした表ではどの手も届かない
+    cand = cand.filter((x, k) => qs[k] >= top - LDP_TIE);
+  }
+  let pick = cand[0];
+  for(const x of cand) if(q0[x] > q0[pick]) pick = x;
+  return { sk: mix[0].tb.acts[pick].sk, q: q0[pick] };
+}
 function lastMassMove(ms, f, t, P, cfg){
   if(isStartState()) return null;
   const mod = cfg.trait === 'modori';
@@ -1191,25 +1229,27 @@ function lastMassMove(ms, f, t, P, cfg){
   let ks = [];
   if(roll){ let kb = 0; for(let k = 1; k <= th; k++) if(dist[k] > dist[kb]) kb = k; if(dist[kb] > 1e-6) ks = [kb]; }
   else for(let k = 0; k <= th; k++) if(dist[k] > 1e-6) ks.push(k);
-  const mix = [];
-  for(const k of ks){
-    const tb = ldpTable(m.zoneLow, m.zoneHigh, Math.min(th - k, MAX_ERR), cfg);
-    if(mod) ldpEnsureM(tb, F); else ldpEnsure(tb, F);
-    mix.push({ w: roll ? 1 : dist[k], tb });
-  }
-  if(!mix.length) return null;
-  ldpTrim(mix.map(e => e.tb));
-  let best = null, bq = 0;
-  for(let x = 0; x < mix[0].tb.acts.length; x++){
-    if(undoesPrev(mix[0].tb.acts[x].sk, cfg)) continue;
-    let q = 0, ok = true;
-    if(!mod) q = ldpQNoUndo(mix, x, ti, p, F, cfg);
-    if(q < 0) ok = false;
-    else if(mod) for(const e of mix){ const v = ldpQM(e.tb, e.tb.acts[x], ti, p, F); if(v < 0){ ok = false; break; } q += e.w * v; }
-    if(ok && q > bq){ bq = q; best = mix[0].tb.acts[x].sk; }
-  }
-  if(!best) return null;
-  return { sk: best, tg: best.masses ? [i] : [], c: actualCostOf(best, t, cfg.trait), nt: Math.max(0, t + best.tempDelta), overP: 0, ldp: bq };
+  // 許される誤差を d 減らした表の混ぜ合わせ(d = 0 が本来の値。同点の手を比べ直す時に使う)
+  const used = [];
+  const mkMix = d => {
+    const mx = [];
+    for(const k of ks){
+      const a = Math.min(th - k, MAX_ERR) - d;
+      if(a < 0) continue;
+      const tb = ldpTable(m.zoneLow, m.zoneHigh, a, cfg);
+      if(mod) ldpEnsureM(tb, F); else ldpEnsure(tb, F);
+      mx.push({ w: roll ? 1 : dist[k], tb }); used.push(tb);
+    }
+    return mx.length ? mx : null;
+  };
+  const mix = mkMix(0);
+  if(!mix) return null;
+  ldpTrim(used);
+  const b = ldpPick(mix, ti, p, F, cfg, mod, roll ? null : mkMix);
+  if(used.length > mix.length) ldpTrim(used);
+  if(!b) return null;
+  const best = b.sk;
+  return { sk: best, tg: best.masses ? [i] : [], c: actualCostOf(best, t, cfg.trait), nt: Math.max(0, t + best.tempDelta), overP: 0, ldp: b.q };
 }
 
 // ---- 戻りの地金: 全マスがゾーンに入った後のやり直し(er、既定 1) ----
@@ -1337,26 +1377,26 @@ function twoMassMove(ms, f, t, P, cfg){
   if(F < 5) return null;
   const th = SUCCESS_THRESHOLD, dist = finishedErrDist(ms, i, th, j);
   if(!dist) return null;
-  const mod = cfg.trait === 'modori', ti = t / 50 - 1, mix = [];
-  for(let k = 0; k <= th; k++){
-    const a = th - k - (P.ldp2B || 0);
-    if(dist[k] <= 1e-6 || a < 0) continue;
-    const tb = ldpTable(ms[i].zoneLow, ms[i].zoneHigh, Math.min(a, MAX_ERR), cfg);
-    if(mod) ldpEnsureM(tb, F); else ldpEnsure(tb, F);
-    mix.push({ w: dist[k], tb });
-  }
-  if(!mix.length) return null;
-  ldpTrim(mix.map(e => e.tb));
-  let best = null, bq = 0;
-  for(let x = 0; x < mix[0].tb.acts.length; x++){
-    if(undoesPrev(mix[0].tb.acts[x].sk, cfg)) continue;
-    let q = 0, ok = true;
-    if(!mod) q = ldpQNoUndo(mix, x, ti, p, F, cfg);
-    if(q < 0) ok = false;
-    else if(mod) for(const e of mix){ const v = ldpQM(e.tb, e.tb.acts[x], ti, p, F); if(v < 0){ ok = false; break; } q += e.w * v; }
-    if(ok && q > bq){ bq = q; best = mix[0].tb.acts[x].sk; }
-  }
-  if(!best) return null;
+  const mod = cfg.trait === 'modori', ti = t / 50 - 1, used = [];
+  // 許される誤差を d 減らした表の混ぜ合わせ(d = 0 が本来の値。同点の手を比べ直す時に使う。ldpPick)
+  const mkMix = d => {
+    const mx = [];
+    for(let k = 0; k <= th; k++){
+      const a = Math.min(th - k - (P.ldp2B || 0), MAX_ERR) - d;
+      if(dist[k] <= 1e-6 || a < 0) continue;
+      const tb = ldpTable(ms[i].zoneLow, ms[i].zoneHigh, a, cfg);
+      if(mod) ldpEnsureM(tb, F); else ldpEnsure(tb, F);
+      mx.push({ w: dist[k], tb }); used.push(tb);
+    }
+    return mx.length ? mx : null;
+  };
+  const mix = mkMix(0);
+  if(!mix) return null;
+  ldpTrim(used);
+  const b = ldpPick(mix, ti, p, F, cfg, mod, mkMix);
+  if(used.length > mix.length) ldpTrim(used);
+  if(!b) return null;
+  const best = b.sk;
   return { sk: best, tg: best.masses ? [i] : [], c: actualCostOf(best, t, cfg.trait), nt: Math.max(0, t + best.tempDelta), overP: 0 };
 }
 
