@@ -608,45 +608,43 @@ const PRESET_RATES = { kagayaki:75, amatsuyu:70, hidane:85, kimonsho:75, bloom:6
 for(const k of Object.keys(PRESET_RATES)) if(PRESETS[k]) PRESETS[k].rate = PRESET_RATES[k];
 // 先読みをしない打ち方(貪欲)の大成功率(%)。商材の選択欄に「簡易 ◯%」と薄い字で出す参考値(利用者の指示)。
 // 先読みありの目安(PRESET_RATES)は実際に近い値、こちらは全商材を速く測れる簡易の値。先読みが無い分、多くの商材で低めに出る。
-// 測り方: 職人Lv80・光のハンマー★3・乱数テープ・種44・各1000局(95%の範囲は ±3pt ほど)。V2.60 のエンジン
-// (V2.80 で打ち方を変えた5商材(奇跡・光・超さいほう針、聖王のナイフ、グラフィアス)は V2.80 のエンジン、
-//  V2.90 で変えた4商材(超木工刀・プラチナルアー・メタスラの盾・ゴシックハット)は V2.90 のエンジンで測り直した)。
+// 測り方: 職人Lv80・光のハンマー★3・乱数テープ・種44・各1000局(95%の範囲は ±3pt ほど)。V3.00 のエンジン(全商材を測り直した)。
 // 推奨手を変えたら node tools/greedy-rates.js --write 1 で測り直して置き換える。
 const PRESET_GREEDY = {
-  奇跡の鍛冶ハンマー:59.3, kajihammer:76.8, 奇跡のさいほう針:60.5, 光のさいほう針:61.3, 奇跡の木工刀:49,
-  光の木工刀:56.1, 奇跡の錬金ランプ:48.3, 光の錬金ランプ:65.5, 奇跡の錬金ツボ:69.3, 光の錬金ツボ:76,
-  奇跡のフライパン:62.5, 光のフライパン:75.2, orb:66.9, amatsuyu:52.6, kagayaki:59,
-  hidane:56.1, 黄金の飾り片手剣:73.6, 黄金の飾り両手剣:62.3, 黄金の飾り短剣:79.5, 黄金の飾りヤリ:60.6,
-  黄金の飾りオノ:81.9, 黄金の飾りハンマー:62.7, 黄金の飾りツメ:64.5, 黄金の飾りブーメラン:70.4, 黄金の飾りムチ:80.5,
-  黄金の飾りスティック:66.6, 黄金の飾り両手杖:69.8, 黄金の飾り棍:64.7, 黄金の飾り扇:64.5, 黄金の飾り弓:68,
-  黄金の飾り盾:70.5, 黄金の飾りかぶと:70.5, 黄金の飾りよろい上:67.1, 黄金の飾りよろい下:69.4, 黄金の飾りこて:82.5,
-  黄金の飾りくつ:71.3, 色飾りタイルのランプ:67, プラチナ鍛冶ハンマ:59.1, プラチナさいほう針:75.1, プラチナ木工刀:70,
-  プラチナ錬金ランプ:47, プラチナ錬金ツボ:64.7, プラチナフライパン:65.2, 超鍛冶ハンマー:60.1, 超さいほう針:69.6,
-  超木工刀:60.5, 超錬金ランプ:55.2, 超錬金ツボ:70.3, 超フライパン:78.2, maoulamp:58.9,
-  まおうのランプ呪文:60.3, あくまの錬金ツボ:57.2, あくまのツボ呪文:57.2, ぎんのルアー:54.3, プラチナルアー:56.5,
-  マデュライトルアー:57.9, 天使のルアー:58.5, トゲトゲルアー:51.2, やいばのルアー:50.6, メタスラの盾:55.3,
-  bloom:48.3, ブルバックラー:61.8, ブレスガーダー:39.9, ミニュアデスの盾:39.3, アクエリアスガード:41.7,
-  プロミネンスの盾:43.8, メテオシールド:60.3, kimonsho:59.4, みずがめの大盾:45.1, 古代鏡の大盾:47.1,
-  神樹の大盾:44.2, 天球の大盾:43.4, ゴシックミトラ:55.2, ゴシックハット:59.6, ガナドールバンド:62.7,
-  聖域の額当て:62.2, 魔衛隊士のかぶと:47, コスモスヘルム:45, トライドニット:58.3, 一角鬼の額当て:41.2,
-  黒夜叉のかぶと:36.5, ゴシックコート上:69.7, ゴシックビスチェ:70, ガナドールスーツ上:68.8, 聖域の闘衣上:67.3,
-  魔衛隊士のよろい上:53.9, コスモスアーマー上:53.7, トライドアーマー:35.3, 一角鬼の闘着上:45.8, 黒夜叉のよろい上:56.9,
-  げんぶの道着下:63.5, ゴシックコート下:70.8, ゴシックフリル:70.7, ガナドールスーツ下:51.2, 聖域の闘衣下:55.8,
+  奇跡の鍛冶ハンマー:59.2, kajihammer:76.8, 奇跡のさいほう針:60.5, 光のさいほう針:61.3, 奇跡の木工刀:48.8,
+  光の木工刀:56.1, 奇跡の錬金ランプ:48.3, 光の錬金ランプ:65.1, 奇跡の錬金ツボ:69.3, 光の錬金ツボ:76,
+  奇跡のフライパン:62.5, 光のフライパン:75.1, orb:66.8, amatsuyu:52.6, kagayaki:59,
+  hidane:56.1, 黄金の飾り片手剣:73.4, 黄金の飾り両手剣:62.3, 黄金の飾り短剣:79.6, 黄金の飾りヤリ:60.6,
+  黄金の飾りオノ:81.7, 黄金の飾りハンマー:62.7, 黄金の飾りツメ:64.4, 黄金の飾りブーメラン:70.3, 黄金の飾りムチ:80.4,
+  黄金の飾りスティック:66.6, 黄金の飾り両手杖:69.6, 黄金の飾り棍:64.7, 黄金の飾り扇:64.5, 黄金の飾り弓:67.8,
+  黄金の飾り盾:70.6, 黄金の飾りかぶと:70.5, 黄金の飾りよろい上:67.1, 黄金の飾りよろい下:69.3, 黄金の飾りこて:82.5,
+  黄金の飾りくつ:71.3, 色飾りタイルのランプ:67.2, プラチナ鍛冶ハンマ:59, プラチナさいほう針:75.1, プラチナ木工刀:70.3,
+  プラチナ錬金ランプ:47.2, プラチナ錬金ツボ:64.9, プラチナフライパン:65.2, 超鍛冶ハンマー:59.9, 超さいほう針:69.6,
+  超木工刀:60.8, 超錬金ランプ:55.1, 超錬金ツボ:70.3, 超フライパン:78.8, maoulamp:58.8,
+  まおうのランプ呪文:60.2, あくまの錬金ツボ:57.2, あくまのツボ呪文:57.2, ぎんのルアー:54.9, プラチナルアー:56.6,
+  マデュライトルアー:58, 天使のルアー:58.3, トゲトゲルアー:51.3, やいばのルアー:51, メタスラの盾:55.3,
+  bloom:48.4, ブルバックラー:61.8, ブレスガーダー:39.7, ミニュアデスの盾:39.2, アクエリアスガード:41.7,
+  プロミネンスの盾:43.8, メテオシールド:60.1, kimonsho:59.5, みずがめの大盾:45.1, 古代鏡の大盾:46.9,
+  神樹の大盾:44.2, 天球の大盾:43.4, ゴシックミトラ:55.3, ゴシックハット:59.4, ガナドールバンド:62.6,
+  聖域の額当て:62.5, 魔衛隊士のかぶと:47.2, コスモスヘルム:45, トライドニット:58.5, 一角鬼の額当て:41.4,
+  黒夜叉のかぶと:36.5, ゴシックコート上:69.4, ゴシックビスチェ:70, ガナドールスーツ上:68.8, 聖域の闘衣上:67.3,
+  魔衛隊士のよろい上:53.9, コスモスアーマー上:53.7, トライドアーマー:35.4, 一角鬼の闘着上:45.7, 黒夜叉のよろい上:56.9,
+  げんぶの道着下:63.5, ゴシックコート下:70.7, ゴシックフリル:70.7, ガナドールスーツ下:51.2, 聖域の闘衣下:55.7,
   魔衛隊士のよろい下:35.2, コスモスアーマー下:36.8, トライドズボン:42, 一角鬼の闘着下:49.6, 黒夜叉のよろい下:35.5,
-  ゴシックグローブ:57.3, ゴシックアーム:58.5, ガナドールグローブ:55.6, 聖域のこて:58.8, 魔衛隊士のこて:60.4,
-  コスモスのこて:52.6, トライドグローブ:55.6, 一角鬼の手甲:42.7, 黒夜叉のこて:38.5, ゴシックブーツ:71,
-  ゴシックニーソ:64.3, ガナドールブーツ:77.2, 聖域のブーツ:79.7, 魔衛隊士のグリーブ:45.8, コスモスグリーブ:55.2,
+  ゴシックグローブ:57.1, ゴシックアーム:58.4, ガナドールグローブ:55.4, 聖域のこて:58.9, 魔衛隊士のこて:60.2,
+  コスモスのこて:52.5, トライドグローブ:55.5, 一角鬼の手甲:42.7, 黒夜叉のこて:38.8, ゴシックブーツ:70.8,
+  ゴシックニーソ:64.3, ガナドールブーツ:77.2, 聖域のブーツ:79.7, 魔衛隊士のグリーブ:45.9, コスモスグリーブ:55.2,
   トライドブーツ:67, 一角鬼の脚半:56.1, 黒夜叉の脚甲:73, メタリオンガード:46.1, メタリオンシールド:44.9,
-  鷲王の盾:59.6, はやぶさの剣改:48.2, 守護竜のつるぎ:46.3, 天馬の大剣:75.8, ネビュラスブレード:30.6,
+  鷲王の盾:59.8, はやぶさの剣改:48.4, 守護竜のつるぎ:46.1, 天馬の大剣:75.8, ネビュラスブレード:30.6,
   聖王のナイフ:59.1, ヴェーレダガー:31, 影星の短刀:30.8, クロワランス:49.6, ミカヅチのやり:36.1,
-  ふぶきのオノ:60.5, セレーネアックス:50.8, キャンサークロー:60.9, 呪星のツメ:35.6, グリンガムのムチ:59.9,
-  ミスティカルソーン:44.4, ボルカノハンマー:66.6, ポラリスハンマー:37, クリスターライト:44.4, ステラトルネード:52.9,
-  レイヴンサイズ:48.1, yumon:38.2, メタリオンブレード:50.2, スパイラルダガー:53.3, メタリオンスピア:36,
+  ふぶきのオノ:60.3, セレーネアックス:50.8, キャンサークロー:60.8, 呪星のツメ:35.6, グリンガムのムチ:59.9,
+  ミスティカルソーン:44.4, ボルカノハンマー:67, ポラリスハンマー:37, クリスターライト:44.4, ステラトルネード:53,
+  レイヴンサイズ:48.2, yumon:38.1, メタリオンブレード:50.2, スパイラルダガー:53.3, メタリオンスピア:36,
   閃帝のオノ:41.2, 鋼神のツメ:39.4, メタリオンウィップ:50, コンプレシオン:65.3, レーザーエッジ:41.8,
-  メタリオンサイズ:38.3, レオンソード:39.7, 獅子の大剣:59.3, ピスケスエッジ:45.1, アメジストライク:65.8,
-  蛮災の鎌:37.2, 不浄の滅剣:54.7, スコーピオサイス:28.7, オフビートクロー:41.8, カプリコルランス:45.4,
+  メタリオンサイズ:38.3, レオンソード:39.7, 獅子の大剣:59.3, ピスケスエッジ:45.1, アメジストライク:65.7,
+  蛮災の鎌:37.2, 不浄の滅剣:54.8, スコーピオサイス:28.7, オフビートクロー:41.6, カプリコルランス:45.4,
   ウィズダムサイス:51, コメットソード:38.9, モアクラッシュ:57.8, セーラスサイズ:40.3, セーラスエッジ:60.8,
-  グラフィアス:50.6, メタルウィング:75.3, 魔除けの鎌:65, 輝天の鎌:47.2,
+  グラフィアス:50.6, メタルウィング:76.2, 魔除けの鎌:64.6, 輝天の鎌:47.2,
 };
 for(const k of Object.keys(PRESET_GREEDY)) if(PRESETS[k]) PRESETS[k].greedy = PRESET_GREEDY[k];
 
@@ -1162,6 +1160,44 @@ function ldpQNoUndo(mix, x, ti, p, F, cfg){
   }
   return best < 0 ? 0 : best;
 }
+// 総当たりの表の混ぜ合わせ(mix)で手を選ぶ(lastMassMove・twoMassMove)。大成功の確率が一番高い手を選び、同点(差が LDP_TIE 以内)の
+// 手が複数あれば、許される誤差を1ずつ減らした表で比べ直して、より確実な手を選ぶ(利用者の指示 2026-10-11)。
+//   例: 先に仕上げたマスの誤差が小さく、残り1マスがゾーンのどこに入っても大成功になる局面(超ようせいのひだね、残り5・750℃)では、
+//   てかげん打ちと弱ねらい打ちがどちらも100%で同点になり、以前は手の並び順でてかげん打ちを選んでいた。最後の一打の後に残る集中力は
+//   使い道が無いので、同点なら誤差が小さくなる手(会心で理想値に止まる見込みが高い手)の方が、理想値の見込みや前提がずれた時の保険になる。
+// mkMix(d) は許される誤差を d 減らした表の混ぜ合わせ(どの成分も負になれば null)。null を渡すと比べ直さない(先読みの試行の中)。
+// 比べ直しても決まらなければ、これまでどおり並び順で先の手。
+const LDP_TIE = 2 / LDP_SCALE;          // 表の値は 1/65535 刻みなので、2刻みまでの差は同点とみなす
+function ldpPick(mix, ti, p, F, cfg, mod, mkMix){
+  const n = mix[0].tb.acts.length;
+  const qOf = (mx, x) => {
+    if(!mod) return ldpQNoUndo(mx, x, ti, p, F, cfg);
+    let q = 0;
+    for(const e of mx){ const v = ldpQM(e.tb, e.tb.acts[x], ti, p, F); if(v < 0) return -1; q += e.w * v; }
+    return q;
+  };
+  const q0 = new Array(n).fill(-1);
+  let best = -1, bq = 0;
+  for(let x = 0; x < n; x++){
+    if(undoesPrev(mix[0].tb.acts[x].sk, cfg)) continue;
+    q0[x] = qOf(mix, x);
+    if(q0[x] > bq){ bq = q0[x]; best = x; }
+  }
+  if(best < 0) return null;
+  let cand = [];
+  for(let x = 0; x < n; x++) if(q0[x] > 0 && q0[x] >= bq - LDP_TIE) cand.push(x);
+  for(let d = 1; cand.length > 1 && mkMix; d++){
+    const mx = mkMix(d);
+    if(!mx) break;
+    const qs = cand.map(x => qOf(mx, x));
+    const top = Math.max(...qs);
+    if(!(top > 0)) break;                  // 厳しくした表ではどの手も届かない
+    cand = cand.filter((x, k) => qs[k] >= top - LDP_TIE);
+  }
+  let pick = cand[0];
+  for(const x of cand) if(q0[x] > q0[pick]) pick = x;
+  return { sk: mix[0].tb.acts[pick].sk, q: q0[pick] };
+}
 function lastMassMove(ms, f, t, P, cfg){
   if(isStartState()) return null;
   const mod = cfg.trait === 'modori';
@@ -1191,25 +1227,27 @@ function lastMassMove(ms, f, t, P, cfg){
   let ks = [];
   if(roll){ let kb = 0; for(let k = 1; k <= th; k++) if(dist[k] > dist[kb]) kb = k; if(dist[kb] > 1e-6) ks = [kb]; }
   else for(let k = 0; k <= th; k++) if(dist[k] > 1e-6) ks.push(k);
-  const mix = [];
-  for(const k of ks){
-    const tb = ldpTable(m.zoneLow, m.zoneHigh, Math.min(th - k, MAX_ERR), cfg);
-    if(mod) ldpEnsureM(tb, F); else ldpEnsure(tb, F);
-    mix.push({ w: roll ? 1 : dist[k], tb });
-  }
-  if(!mix.length) return null;
-  ldpTrim(mix.map(e => e.tb));
-  let best = null, bq = 0;
-  for(let x = 0; x < mix[0].tb.acts.length; x++){
-    if(undoesPrev(mix[0].tb.acts[x].sk, cfg)) continue;
-    let q = 0, ok = true;
-    if(!mod) q = ldpQNoUndo(mix, x, ti, p, F, cfg);
-    if(q < 0) ok = false;
-    else if(mod) for(const e of mix){ const v = ldpQM(e.tb, e.tb.acts[x], ti, p, F); if(v < 0){ ok = false; break; } q += e.w * v; }
-    if(ok && q > bq){ bq = q; best = mix[0].tb.acts[x].sk; }
-  }
-  if(!best) return null;
-  return { sk: best, tg: best.masses ? [i] : [], c: actualCostOf(best, t, cfg.trait), nt: Math.max(0, t + best.tempDelta), overP: 0, ldp: bq };
+  // 許される誤差を d 減らした表の混ぜ合わせ(d = 0 が本来の値。同点の手を比べ直す時に使う)
+  const used = [];
+  const mkMix = d => {
+    const mx = [];
+    for(const k of ks){
+      const a = Math.min(th - k, MAX_ERR) - d;
+      if(a < 0) continue;
+      const tb = ldpTable(m.zoneLow, m.zoneHigh, a, cfg);
+      if(mod) ldpEnsureM(tb, F); else ldpEnsure(tb, F);
+      mx.push({ w: roll ? 1 : dist[k], tb }); used.push(tb);
+    }
+    return mx.length ? mx : null;
+  };
+  const mix = mkMix(0);
+  if(!mix) return null;
+  ldpTrim(used);
+  const b = ldpPick(mix, ti, p, F, cfg, mod, roll ? null : mkMix);
+  if(used.length > mix.length) ldpTrim(used);
+  if(!b) return null;
+  const best = b.sk;
+  return { sk: best, tg: best.masses ? [i] : [], c: actualCostOf(best, t, cfg.trait), nt: Math.max(0, t + best.tempDelta), overP: 0, ldp: b.q };
 }
 
 // ---- 戻りの地金: 全マスがゾーンに入った後のやり直し(er、既定 1) ----
@@ -1337,26 +1375,26 @@ function twoMassMove(ms, f, t, P, cfg){
   if(F < 5) return null;
   const th = SUCCESS_THRESHOLD, dist = finishedErrDist(ms, i, th, j);
   if(!dist) return null;
-  const mod = cfg.trait === 'modori', ti = t / 50 - 1, mix = [];
-  for(let k = 0; k <= th; k++){
-    const a = th - k - (P.ldp2B || 0);
-    if(dist[k] <= 1e-6 || a < 0) continue;
-    const tb = ldpTable(ms[i].zoneLow, ms[i].zoneHigh, Math.min(a, MAX_ERR), cfg);
-    if(mod) ldpEnsureM(tb, F); else ldpEnsure(tb, F);
-    mix.push({ w: dist[k], tb });
-  }
-  if(!mix.length) return null;
-  ldpTrim(mix.map(e => e.tb));
-  let best = null, bq = 0;
-  for(let x = 0; x < mix[0].tb.acts.length; x++){
-    if(undoesPrev(mix[0].tb.acts[x].sk, cfg)) continue;
-    let q = 0, ok = true;
-    if(!mod) q = ldpQNoUndo(mix, x, ti, p, F, cfg);
-    if(q < 0) ok = false;
-    else if(mod) for(const e of mix){ const v = ldpQM(e.tb, e.tb.acts[x], ti, p, F); if(v < 0){ ok = false; break; } q += e.w * v; }
-    if(ok && q > bq){ bq = q; best = mix[0].tb.acts[x].sk; }
-  }
-  if(!best) return null;
+  const mod = cfg.trait === 'modori', ti = t / 50 - 1, used = [];
+  // 許される誤差を d 減らした表の混ぜ合わせ(d = 0 が本来の値。同点の手を比べ直す時に使う。ldpPick)
+  const mkMix = d => {
+    const mx = [];
+    for(let k = 0; k <= th; k++){
+      const a = Math.min(th - k - (P.ldp2B || 0), MAX_ERR) - d;
+      if(dist[k] <= 1e-6 || a < 0) continue;
+      const tb = ldpTable(ms[i].zoneLow, ms[i].zoneHigh, a, cfg);
+      if(mod) ldpEnsureM(tb, F); else ldpEnsure(tb, F);
+      mx.push({ w: dist[k], tb }); used.push(tb);
+    }
+    return mx.length ? mx : null;
+  };
+  const mix = mkMix(0);
+  if(!mix) return null;
+  ldpTrim(used);
+  const b = ldpPick(mix, ti, p, F, cfg, mod, mkMix);
+  if(used.length > mix.length) ldpTrim(used);
+  if(!b) return null;
+  const best = b.sk;
   return { sk: best, tg: best.masses ? [i] : [], c: actualCostOf(best, t, cfg.trait), nt: Math.max(0, t + best.tempDelta), overP: 0 };
 }
 
