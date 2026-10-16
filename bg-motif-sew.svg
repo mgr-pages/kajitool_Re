@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900">
+  <!-- tools/make-bg-motif.py で作成。手で直さず、スクリプトを直して作り直すこと。
+       背景に敷く柄(裁縫): 針・糸巻き・はさみ・ボタン・指ぬき・布とスライム。数字の読みやすさを損なわないよう、ごく薄くしてある。 -->
+  <g fill="none" stroke="#4f4a78" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity=".2">
+    <g transform="translate(106.1 799.5) rotate(-32.5) scale(0.85)" stroke-width="2.60"><g transform="rotate(-28)"><path d="M-34 0 L25 -2.6 Q31 -2.6 31 0 Q31 2.6 25 2.6 Z"/>
+      <ellipse cx="26" cy="0" rx="3" ry="1.1"/><path d="M27 0 C38 -9 30 -23 15 -16 C3 -10 9 5 -6 11"/></g></g>
+    <g transform="translate(284.9 165.2) rotate(-0.5) scale(0.90)" stroke-width="2.43"><path d="M-30 -20 L-24 -25 L-18 -20 L-12 -25 L-6 -20 L0 -25 L6 -20 L12 -25 L18 -20 L24 -25 L30 -20 V22 H-30 Z"/>
+      <path d="M-24 -9 H24 M-24 12 H24" stroke-dasharray="5 4"/></g>
+    <g transform="translate(117.0 193.7) rotate(-31.9) scale(1.03)" stroke-width="2.13"><path d="M-30 -20 L-24 -25 L-18 -20 L-12 -25 L-6 -20 L0 -25 L6 -20 L12 -25 L18 -20 L24 -25 L30 -20 V22 H-30 Z"/>
+      <path d="M-24 -9 H24 M-24 12 H24" stroke-dasharray="5 4"/></g>
+    <g transform="translate(63.0 539.9) rotate(-3.3) scale(1.04)" stroke-width="2.11"><path d="M-30 -20 L-24 -25 L-18 -20 L-12 -25 L-6 -20 L0 -25 L6 -20 L12 -25 L18 -20 L24 -25 L30 -20 V22 H-30 Z"/>
+      <path d="M-24 -9 H24 M-24 12 H24" stroke-dasharray="5 4"/></g>
+    <g transform="translate(679.9 584.8) rotate(-30.0) scale(0.98)" stroke-width="2.25"><g transform="rotate(-28)"><path d="M-34 0 L25 -2.6 Q31 -2.6 31 0 Q31 2.6 25 2.6 Z"/>
+      <ellipse cx="26" cy="0" rx="3" ry="1.1"/><path d="M27 0 C38 -9 30 -23 15 -16 C3 -10 9 5 -6 11"/></g></g>
+    <g transform="translate(416.4 478.2) rotate(-27.2) scale(1.18)" stroke-width="1.87"><g transform="rotate(-28)"><path d="M-34 0 L25 -2.6 Q31 -2.6 31 0 Q31 2.6 25 2.6 Z"/>
+      <ellipse cx="26" cy="0" rx="3" ry="1.1"/><path d="M27 0 C38 -9 30 -23 15 -16 C3 -10 9 5 -6 11"/></g></g>
+    <g transform="translate(832.6 759.7) rotate(-19.9) scale(1.05)" stroke-width="2.09"><g transform="rotate(-28)"><path d="M-34 0 L25 -2.6 Q31 -2.6 31 0 Q31 2.6 25 2.6 Z"/>
+      <ellipse cx="26" cy="0" rx="3" ry="1.1"/><path d="M27 0 C38 -9 30 -23 15 -16 C3 -10 9 5 -6 11"/></g></g>
+    <g transform="translate(523.8 698.6) rotate(14.5) scale(0.87)" stroke-width="2.52"><g transform="rotate(18)"><circle cx="-22" cy="-9" r="8"/><circle cx="-22" cy="9" r="8"/>
+      <path d="M-15 -5 L31 7 M-15 5 L31 -7"/><circle cx="8" cy="0" r="1.6"/></g></g>
+    <g transform="translate(729.1 300.4) rotate(-7.7) scale(1.18)" stroke-width="1.86"><g transform="rotate(18)"><circle cx="-22" cy="-9" r="8"/><circle cx="-22" cy="9" r="8"/>
+      <path d="M-15 -5 L31 7 M-15 5 L31 -7"/><circle cx="8" cy="0" r="1.6"/></g></g>
+    <g transform="translate(383.9 343.8) rotate(26.0) scale(1.18)" stroke-width="1.87"><g transform="rotate(18)"><circle cx="-22" cy="-9" r="8"/><circle cx="-22" cy="9" r="8"/>
+      <path d="M-15 -5 L31 7 M-15 5 L31 -7"/><circle cx="8" cy="0" r="1.6"/></g></g>
+    <g transform="translate(493.1 827.3) rotate(2.0) scale(1.00)" stroke-width="2.20"><g transform="scale(.056) translate(-975 -760)" stroke-width="39.3">
+      <path d="M1010 240 C1045 240 1055 290 1065 330 C1085 420 1100 500 1140 560 C1200 620 1300 650 1360 670 C1480 730 1530 850 1525 940 C1520 1080 1400 1200 1250 1240 C1100 1280 850 1285 700 1250 C540 1215 430 1100 430 950 C430 820 540 720 650 660 C750 610 840 580 890 520 C930 470 955 380 970 300 C980 260 995 240 1010 240 Z"/>
+      <ellipse cx="875" cy="905" rx="92" ry="98"/><ellipse cx="1115" cy="888" rx="90" ry="95"/>
+      <path d="M750 1050 C790 1020 850 1040 900 1070 C960 1100 1040 1100 1110 1080 C1170 1060 1210 1000 1255 1005 C1290 1010 1280 1060 1250 1080 C1180 1140 1080 1175 980 1170 C880 1168 780 1130 750 1095 C735 1075 740 1058 750 1050 Z"/>
+      <circle cx="877" cy="907" r="37" fill="#4f4a78" fill-opacity=".9" stroke="none"/>
+      <circle cx="1112" cy="890" r="35" fill="#4f4a78" fill-opacity=".9" stroke="none"/></g></g>
+    <g transform="translate(209.9 365.8) rotate(-7.5) scale(1.00)" stroke-width="2.20"><g transform="scale(.056) translate(-975 -760)" stroke-width="39.3">
+      <path d="M1010 240 C1045 240 1055 290 1065 330 C1085 420 1100 500 1140 560 C1200 620 1300 650 1360 670 C1480 730 1530 850 1525 940 C1520 1080 1400 1200 1250 1240 C1100 1280 850 1285 700 1250 C540 1215 430 1100 430 950 C430 820 540 720 650 660 C750 610 840 580 890 520 C930 470 955 380 970 300 C980 260 995 240 1010 240 Z"/>
+      <ellipse cx="875" cy="905" rx="92" ry="98"/><ellipse cx="1115" cy="888" rx="90" ry="95"/>
+      <path d="M750 1050 C790 1020 850 1040 900 1070 C960 1100 1040 1100 1110 1080 C1170 1060 1210 1000 1255 1005 C1290 1010 1280 1060 1250 1080 C1180 1140 1080 1175 980 1170 C880 1168 780 1130 750 1095 C735 1075 740 1058 750 1050 Z"/>
+      <circle cx="877" cy="907" r="37" fill="#4f4a78" fill-opacity=".9" stroke="none"/>
+      <circle cx="1112" cy="890" r="35" fill="#4f4a78" fill-opacity=".9" stroke="none"/></g></g>
+    <g transform="translate(777.9 415.1) rotate(-3.2) scale(1.00)" stroke-width="2.20"><g transform="scale(.056) translate(-975 -760)" stroke-width="39.3">
+      <path d="M1010 240 C1045 240 1055 290 1065 330 C1085 420 1100 500 1140 560 C1200 620 1300 650 1360 670 C1480 730 1530 850 1525 940 C1520 1080 1400 1200 1250 1240 C1100 1280 850 1285 700 1250 C540 1215 430 1100 430 950 C430 820 540 720 650 660 C750 610 840 580 890 520 C930 470 955 380 970 300 C980 260 995 240 1010 240 Z"/>
+      <ellipse cx="875" cy="905" rx="92" ry="98"/><ellipse cx="1115" cy="888" rx="90" ry="95"/>
+      <path d="M750 1050 C790 1020 850 1040 900 1070 C960 1100 1040 1100 1110 1080 C1170 1060 1210 1000 1255 1005 C1290 1010 1280 1060 1250 1080 C1180 1140 1080 1175 980 1170 C880 1168 780 1130 750 1095 C735 1075 740 1058 750 1050 Z"/>
+      <circle cx="877" cy="907" r="37" fill="#4f4a78" fill-opacity=".9" stroke="none"/>
+      <circle cx="1112" cy="890" r="35" fill="#4f4a78" fill-opacity=".9" stroke="none"/></g></g>
+    <g transform="translate(118.5 324.4) rotate(3.2) scale(1.00)" stroke-width="2.20"><g transform="scale(.056) translate(-975 -760)" stroke-width="39.3">
+      <path d="M1010 240 C1045 240 1055 290 1065 330 C1085 420 1100 500 1140 560 C1200 620 1300 650 1360 670 C1480 730 1530 850 1525 940 C1520 1080 1400 1200 1250 1240 C1100 1280 850 1285 700 1250 C540 1215 430 1100 430 950 C430 820 540 720 650 660 C750 610 840 580 890 520 C930 470 955 380 970 300 C980 260 995 240 1010 240 Z"/>
+      <ellipse cx="875" cy="905" rx="92" ry="98"/><ellipse cx="1115" cy="888" rx="90" ry="95"/>
+      <path d="M750 1050 C790 1020 850 1040 900 1070 C960 1100 1040 1100 1110 1080 C1170 1060 1210 1000 1255 1005 C1290 1010 1280 1060 1250 1080 C1180 1140 1080 1175 980 1170 C880 1168 780 1130 750 1095 C735 1075 740 1058 750 1050 Z"/>
+      <circle cx="877" cy="907" r="37" fill="#4f4a78" fill-opacity=".9" stroke="none"/>
+      <circle cx="1112" cy="890" r="35" fill="#4f4a78" fill-opacity=".9" stroke="none"/></g></g>
+    <g transform="translate(253.5 764.8) rotate(-1.5) scale(1.20)" stroke-width="1.84"><rect x="-16" y="-25" width="32" height="7" rx="2"/><rect x="-16" y="18" width="32" height="7" rx="2"/>
+      <rect x="-11" y="-18" width="22" height="36"/><path d="M-11 -11 L11 -7 M-11 -3 L11 1 M-11 5 L11 9 M-11 13 L11 17"/>
+      <path d="M11 9 C22 10 24 20 18 26"/></g>
+    <g transform="translate(232.5 8.0) rotate(7.4) scale(0.85)" stroke-width="2.57"><rect x="-16" y="-25" width="32" height="7" rx="2"/><rect x="-16" y="18" width="32" height="7" rx="2"/>
+      <rect x="-11" y="-18" width="22" height="36"/><path d="M-11 -11 L11 -7 M-11 -3 L11 1 M-11 5 L11 9 M-11 13 L11 17"/>
+      <path d="M11 9 C22 10 24 20 18 26"/></g>
+    <g transform="translate(232.5 908.0) rotate(7.4) scale(0.85)" stroke-width="2.57"><rect x="-16" y="-25" width="32" height="7" rx="2"/><rect x="-16" y="18" width="32" height="7" rx="2"/>
+      <rect x="-11" y="-18" width="22" height="36"/><path d="M-11 -11 L11 -7 M-11 -3 L11 1 M-11 5 L11 9 M-11 13 L11 17"/>
+      <path d="M11 9 C22 10 24 20 18 26"/></g>
+    <g transform="translate(708.8 144.6) rotate(10.3) scale(1.17)" stroke-width="1.87"><rect x="-16" y="-25" width="32" height="7" rx="2"/><rect x="-16" y="18" width="32" height="7" rx="2"/>
+      <rect x="-11" y="-18" width="22" height="36"/><path d="M-11 -11 L11 -7 M-11 -3 L11 1 M-11 5 L11 9 M-11 13 L11 17"/>
+      <path d="M11 9 C22 10 24 20 18 26"/></g>
+    <g transform="translate(451.0 239.4) rotate(12.0) scale(0.99)" stroke-width="2.23"><path d="M-13 15 L-11 -8 Q-11 -18 0 -18 Q11 -18 11 -8 L13 15 Z"/><path d="M-16 15 H16"/>
+      <path d="M-5 -9 h.1 M2 -9 h.1 M-7 -1 h.1 M0 -1 h.1 M7 -1 h.1 M-7 7 h.1 M0 7 h.1 M7 7 h.1"/></g>
+    <g transform="translate(825.4 499.7) rotate(34.9) scale(1.03)" stroke-width="2.14"><path d="M-13 15 L-11 -8 Q-11 -18 0 -18 Q11 -18 11 -8 L13 15 Z"/><path d="M-16 15 H16"/>
+      <path d="M-5 -9 h.1 M2 -9 h.1 M-7 -1 h.1 M0 -1 h.1 M7 -1 h.1 M-7 7 h.1 M0 7 h.1 M7 7 h.1"/></g>
+    <g transform="translate(468.5 106.5) rotate(5.5) scale(0.91)" stroke-width="2.41"><path d="M-13 15 L-11 -8 Q-11 -18 0 -18 Q11 -18 11 -8 L13 15 Z"/><path d="M-16 15 H16"/>
+      <path d="M-5 -9 h.1 M2 -9 h.1 M-7 -1 h.1 M0 -1 h.1 M7 -1 h.1 M-7 7 h.1 M0 7 h.1 M7 7 h.1"/></g>
+    <g transform="translate(70.9 642.9) rotate(-34.6) scale(0.81)" stroke-width="2.71"><circle r="15"/><circle r="10.5"/>
+      <circle cx="-3.8" cy="-3.8" r="1.8"/><circle cx="3.8" cy="-3.8" r="1.8"/><circle cx="-3.8" cy="3.8" r="1.8"/><circle cx="3.8" cy="3.8" r="1.8"/></g>
+    <g transform="translate(817.4 640.7) rotate(32.9) scale(0.91)" stroke-width="2.42"><circle r="15"/><circle r="10.5"/>
+      <circle cx="-3.8" cy="-3.8" r="1.8"/><circle cx="3.8" cy="-3.8" r="1.8"/><circle cx="-3.8" cy="3.8" r="1.8"/><circle cx="3.8" cy="3.8" r="1.8"/></g>
+    <g transform="translate(551.1 227.7) rotate(16.5) scale(0.98)" stroke-width="2.25"><circle r="15"/><circle r="10.5"/>
+      <circle cx="-3.8" cy="-3.8" r="1.8"/><circle cx="3.8" cy="-3.8" r="1.8"/><circle cx="-3.8" cy="3.8" r="1.8"/><circle cx="3.8" cy="3.8" r="1.8"/></g>
+    <g transform="translate(838.9 98.1) rotate(24.8) scale(1.16)" stroke-width="1.89"><circle r="15"/><circle r="10.5"/>
+      <circle cx="-3.8" cy="-3.8" r="1.8"/><circle cx="3.8" cy="-3.8" r="1.8"/><circle cx="-3.8" cy="3.8" r="1.8"/><circle cx="3.8" cy="3.8" r="1.8"/></g>
+    <g transform="translate(362.9 894.8) rotate(-12.5) scale(1.04)" stroke-width="2.11"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(362.9 -5.2) rotate(-12.5) scale(1.04)" stroke-width="2.11"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(187.1 846.9) rotate(19.7) scale(0.81)" stroke-width="2.71"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(802.4 881.5) rotate(-19.0) scale(1.01)" stroke-width="2.18"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(61.1 445.7) rotate(17.8) scale(1.06)" stroke-width="2.08"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(259.8 261.9) rotate(-17.2) scale(1.07)" stroke-width="2.06"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(897.0 263.7) rotate(20.0) scale(1.15)" stroke-width="1.91"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(-3.0 263.7) rotate(20.0) scale(1.15)" stroke-width="1.91"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(38.2 44.8) rotate(0.1) scale(1.00)" stroke-width="2.21"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(658.9 262.4) rotate(2.2) scale(1.14)" stroke-width="1.92"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(27.2 732.2) rotate(18.6) scale(0.99)" stroke-width="2.23"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(826.7 820.7) rotate(23.1) scale(1.05)" stroke-width="2.10"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(222.3 157.6) rotate(29.9) scale(0.83)" stroke-width="2.67"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+    <g transform="translate(740.3 232.2) rotate(22.8) scale(0.87)" stroke-width="2.52"><path d="M-5 -5 L5 5 M5 -5 L-5 5" stroke="#a0306a" stroke-opacity=".85"/></g>
+  </g>
+</svg>

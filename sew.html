@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja" class="pg-sew">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- 版は index.html が元(tools/stamp.py が書き写す) -->
+<title>裁縫 - 職人アドバイザーV4.00</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css?v=c24d6a6d">
+<link rel="stylesheet" href="sew.css?v=c24d6a6d">
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-title">
+    <!-- トップページ(鍛冶/裁縫を選ぶ)へ戻る。打ちかけの状態は端末に残るので、戻っても消えない -->
+    <a class="hdr-home" href="./" aria-label="トップページへ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 L12 4 L21 11.5 M6 9.5 V20 H18 V9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+    <!-- 押すと「部位 ▶ 装備Lv ▶ レシピ」の順に選ぶ画面を開く -->
+    <button class="mat-sel" id="s-recipe" onclick="openPicker()" aria-haspopup="dialog">
+      <span class="ms-grp" id="v-grp"></span><span class="ms-name" id="v-name"></span>
+    </button>
+    <button class="hdr-reset" onclick="confirmReset()">最初から</button>
+  </div>
+  <div class="hdr-row">
+    <div class="stat">
+      <span class="lbl">ターン</span><span class="val" id="v-turn">1</span>
+    </div>
+    <div class="stat tap" onclick="openNum('focus')">
+      <span class="lbl">集中力</span><span class="val" id="v-focus">0</span>
+      <span class="edit" aria-hidden="true">✎</span>
+    </div>
+    <div class="stat tap pw" onclick="openPower()">
+      <span class="lbl">ぬいパワー</span><span class="val" id="v-power">—</span>
+      <span class="edit" aria-hidden="true">✎</span>
+    </div>
+  </div>
+  <div class="badges" id="badges"></div>
+</div>
+
+<div class="main">
+<div class="board">
+  <div class="sboard" id="sboard"></div>
+  <div class="ssum" id="ssum"></div>
+  <!-- ぬいパワーの順番。今の位置に印。押すと位置を直せる(ゲームとずれた時) -->
+  <div class="cyc" id="cycle"></div>
+</div>
+
+<div class="side">
+<div class="foot" id="footPanel">
+  <div class="rec" id="rec"><div class="rec-empty">レシピを選んでください</div></div>
+  <div id="inputPanel"></div>
+  <!-- 状況に応じて「入力する/使った/結果を入力」を切り替える、画面で唯一の主ボタン -->
+  <div class="act-row">
+    <button class="sub-btn" id="undoBtn" onclick="undoLast()" style="display:none">取り消す</button>
+    <button class="sub-btn" id="otherBtn" onclick="openOther()" style="display:none">別の手</button>
+    <button class="calc" id="calcBtn" onclick="onPrimary()">推奨手を計算</button>
+  </div>
+</div>
+
+<details class="acc">
+  <summary>特技一覧(このターン)</summary>
+  <div class="body"><table class="sk" id="skTable"></table><div class="sk-note" id="skNote"></div></div>
+</details>
+
+<details class="acc" id="setAcc">
+  <summary>設定<span class="gear" id="v-gear">—</span></summary>
+  <div class="body">
+    <div class="set-row"><label>職人レベル</label>
+      <input type="number" id="s-level" min="1" max="80" value="80"></div>
+    <div class="set-row"><label>さいほう針</label>
+      <select id="s-needle">
+        <option value="copper">銅</option><option value="iron">鉄</option>
+        <option value="silver">銀</option><option value="platinum">プラチナ</option>
+        <option value="super">超</option><option value="miracle">奇跡</option>
+        <option value="light" selected>光</option>
+      </select></div>
+    <div class="set-row"><label>できのよさ</label>
+      <select id="s-star">
+        <option value="0">★0</option><option value="1">★1</option>
+        <option value="2">★2</option><option value="3" selected>★3</option>
+      </select></div>
+    <div class="set-row"><label>レシピのコツ</label>
+      <select id="s-kotsu">
+        <option value="1" selected>あり</option><option value="0">なし</option>
+      </select></div>
+    <div class="set-note">設定を変えると、今の対局の続きのまま推奨手を計算し直します。</div>
+    <div class="ver" id="v-ver"></div>
+  </div>
+</details>
+</div>
+</div>
+
+<!-- 数字の入力(マスの残り・集中力)。候補があれば候補を出し、無い値はテンキーで入れる -->
+<div class="modal" id="numModal" onclick="if(event.target===this)closeNum()">
+  <div class="pad">
+    <button class="pad-close" onclick="closeNum()">閉じる</button>
+    <div class="pad-hd" id="numTitle"></div>
+    <div id="numCand"></div>
+    <div id="numKeys">
+      <div class="pad-disp"><span id="numVal">0</span></div>
+      <div class="keys k4">
+        <button onclick="nkey('7')">7</button><button onclick="nkey('8')">8</button><button onclick="nkey('9')">9</button>
+        <button onclick="nkey('del')" class="del word">1字消す</button>
+        <button onclick="nkey('4')">4</button><button onclick="nkey('5')">5</button><button onclick="nkey('6')">6</button>
+        <button onclick="nkey('sign')" class="op" id="nSign">－</button>
+        <button onclick="nkey('1')">1</button><button onclick="nkey('2')">2</button><button onclick="nkey('3')">3</button>
+        <button onclick="nkey('0')">0</button>
+        <button onclick="ncommit()" class="ok" style="grid-column:span 4">決定</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ぬいパワーの選択(「？」・シフトの後・ゲームとずれた時) -->
+<div class="modal" id="powModal" onclick="if(event.target===this)closePower()">
+  <div class="pad">
+    <button class="pad-close" onclick="closePower()">閉じる</button>
+    <div class="pad-hd" id="powTitle">このターンのぬいパワーを選んでください</div>
+    <div class="oc-row pow-row" id="powRow"></div>
+  </div>
+</div>
+
+<!-- 別の手(推奨と違う特技を使った時) -->
+<div class="modal" id="otherModal" onclick="if(event.target===this)closeOther()">
+  <div class="pad pick">
+    <button class="pad-close" onclick="closeOther()">閉じる</button>
+    <div class="pad-hd" id="otherTitle">使った特技を選んでください</div>
+    <div id="otherBody"></div>
+  </div>
+</div>
+
+<!-- レシピの選択。部位 ▶ 装備Lv ▶ レシピ の順にたどる。上の道しるべを押すと前の段に戻る -->
+<div class="modal" id="pickModal" onclick="if(event.target===this)closePicker()">
+  <div class="pad pick">
+    <button class="pad-close" onclick="closePicker()">閉じる</button>
+    <div class="pad-hd">レシピを選ぶ</div>
+    <input type="search" class="pk-search" id="pkSearch" placeholder="名前で探す" oninput="renderPicker()">
+    <div class="pk-crumbs" id="pkCrumbs"></div>
+    <div id="pkBody"></div>
+  </div>
+</div>
+
+<!-- 結果の選択。しあげた時・打ち始めた後のリセットやレシピの切り替えの前に選ぶ(記録用) -->
+<div class="modal" id="outcomeModal">
+  <div class="pad">
+    <div class="pad-hd" id="outcomeTitle">今回の結果を選んでください</div>
+    <div class="oc-row" id="outcomeRow"></div>
+    <button class="cand-more" onclick="closeOutcome()">戻る(リセットしない)</button>
+  </div>
+</div>
+
+<script src="sew-recipes.js?v=c24d6a6d"></script>
+<script src="sew-engine.js?v=c24d6a6d"></script>
+<script src="sew-ai.js?v=c24d6a6d"></script>
+<script src="gamelog.js?v=c24d6a6d"></script>
+<script src="sew-ui.js?v=c24d6a6d"></script>
+</body>
+</html>

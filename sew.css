@@ -1,0 +1,118 @@
+/* =====================================================================
+   裁縫の画面(sew.html)だけの見た目。共通の部品(ヘッダー・札・テンキー・折りたたみ)は style.css。
+   地の柄(bg-motif-sew.svg)は版の印を付けるため style.css の html.pg-sew に書いてある。
+   ===================================================================== */
+/* 裁縫は布の色に寄せて、地を少し冷たい生成りにする(鍛冶の紙の地と見分けられるように) */
+html.pg-sew{ --bg:#efe7d9; --bg2:#f8f3e8; --panel:#fcf8ef; --line:#c3b394; --sunk:#e7dcc6;
+  --sew:#4f4a78; }
+
+/* ぬいパワーの欄: 「会心×２」が折り返さないように(スマホ幅) */
+.pg-sew .stat.pw .val{white-space:nowrap;}
+@media (max-width:759px){
+  .pg-sew .stat.pw{flex:1.25 1 0;}
+  .pg-sew .stat.pw .val{font-size:15px;}
+}
+@media (max-width:359px){ .pg-sew .stat.pw .val{font-size:13px;} .pg-sew .stat.pw .lbl{display:none;} }
+
+/* ===== 盤 ===== */
+.sboard{display:grid; gap:8px; margin:4px auto 0; max-width:420px; padding:0 6px;}
+.scell{position:relative; border:1px solid rgba(195,179,148,.95); border-radius:10px; min-height:92px;
+  background:linear-gradient(180deg,#fffdf8 0%, var(--panel) 55%, #f1e9da 100%);
+  box-shadow:inset 0 1px 0 #fff, 0 2px 0 rgba(79,74,120,.22), 0 4px 10px rgba(60,52,40,.10);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px 4px;
+  cursor:pointer; color:var(--text); font:inherit; -webkit-appearance:none; appearance:none;}
+.scell:active{filter:brightness(.97);}
+.scell.void{visibility:hidden; pointer-events:none;}
+.scell .no{position:absolute; top:5px; left:7px; font-size:11px; color:var(--dim); font-weight:700;}
+.scell .rem{font-size:34px; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums;}
+.scell .base{font-size:11px; color:var(--dim); margin-top:2px;}
+/* 色はゲームのゲージに合わせる: 黄色 = 基準値の±4以内、赤 = 5以上縫いすぎ */
+.scell.yellow{background:linear-gradient(180deg,#fffbe6, #fbefb8); border-color:#d6b84a;}
+.scell.yellow .rem{color:#7a5a00;}
+.scell.red{background:linear-gradient(180deg,#fdf0ee, #f5d9d4); border-color:#d38a80;}
+.scell.red .rem{color:var(--red);}
+/* 推奨手が当たるマス。選ぶマス(起点)は濃く、ほかに当たるマスは薄く */
+.scell.tg{box-shadow:0 0 0 3px rgba(79,74,120,.28), 0 2px 0 rgba(79,74,120,.35);}
+.scell.anchor{box-shadow:0 0 0 3px var(--sew), 0 4px 12px rgba(79,74,120,.35);}
+.scell.anchor::after{content:'ここ'; position:absolute; top:-9px; right:-6px; background:var(--sew); color:#fff;
+  font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:10px;}
+/* 結果の入力待ちのマス(鍛冶の画面と同じく「入力」の札を付けて、枠を点滅させる) */
+.scell.pend{border-color:var(--ember) !important; animation:needpulse 1.3s ease-in-out infinite;}
+.scell .no .in{margin-left:5px; background:var(--ember); color:#fbf3e0; font-size:10px; padding:1px 6px; border-radius:8px; vertical-align:1px;}
+.scell .tags{position:absolute; bottom:4px; right:6px; display:flex; gap:3px;}
+.scell .tag{font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:8px;}
+.scell .tag.glow{background:#f7d24a; color:#5a4300;}
+.scell .tag.shi{background:#dcd6f2; color:var(--sew);}
+
+/* 誤差の合計 */
+.ssum{text-align:center; font-size:13px; color:var(--dim); margin:10px 0 4px;}
+.ssum b{font-size:16px; color:var(--text); font-variant-numeric:tabular-nums;}
+.ssum .ssub{display:inline-block; margin-left:8px; font-size:11.5px;}
+.ssum .ok{color:var(--green);}
+.ssum .ng{color:var(--ember);}
+
+/* ぬいパワーの順番 */
+.cyc{display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin:6px auto 8px; max-width:420px; padding:0 6px;}
+.cyc-h{width:100%; text-align:center; font-size:11px; color:var(--dim); margin-bottom:2px;}
+.cyc button{min-width:34px; padding:4px 6px; border-radius:8px; border:1px solid var(--line); background:var(--panel);
+  font-size:12px; font-weight:700; color:var(--dim); font-family:inherit;}
+.cyc button.q{color:var(--gold);}
+.cyc button.now, .cyc button.now.q{background:var(--sew); border-color:var(--sew); color:#fff;}
+.cyc .lock{font-size:11px; color:var(--sew); align-self:center; margin-left:4px;}
+
+/* 推奨手 */
+.rec .rec-skill .tgt{font-size:13px; color:var(--dim); font-weight:700; margin-left:6px;}
+.rec .rec-p{font-size:12px; color:var(--green); font-weight:700;}
+.inp{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin-bottom:8px;}
+.inp .d{font-size:12.5px; color:var(--text); margin-bottom:6px;}
+.inp .row{display:flex; flex-wrap:wrap; gap:6px;}
+.inp .row button{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:7px 10px;
+  font-size:13px; font-weight:700; color:var(--text); font-family:inherit; box-shadow:var(--raise);}
+.inp .row button.hl{border-color:var(--sew); color:var(--sew);}
+
+/* ぬいパワーの選択 */
+.pow-row{grid-template-columns:1fr 1fr;}
+.pow-row .cand{padding:14px 8px; font-size:17px; font-weight:800;}
+.pow-row .cand.now{border-color:var(--sew); color:var(--sew); box-shadow:inset 0 0 0 1px var(--sew);}
+.pow-row .cand small{display:block; font-size:11px; font-weight:400; color:var(--dim); margin-top:2px;}
+
+/* 別の手 */
+.oth-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:6px; margin-bottom:10px;}
+.oth-list button{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:9px 6px;
+  font-size:13.5px; font-weight:700; color:var(--text); font-family:inherit; text-align:left;}
+.oth-list button small{display:block; font-size:11px; font-weight:400; color:var(--dim);}
+.oth-list button:disabled{opacity:.4;}
+.oth-grid{display:grid; gap:6px; max-width:300px; margin:8px auto 0;}
+.oth-grid button{min-height:52px; border-radius:8px; border:1px solid var(--line); background:var(--panel);
+  font-size:15px; font-weight:800; color:var(--text); font-family:inherit;}
+.oth-grid button.void{visibility:hidden;}
+
+/* レシピの選択 */
+.pk-search{width:100%; margin:0 0 10px; padding:9px 11px; border-radius:8px; border:1px solid var(--line);
+  background:var(--bg); font-size:15px; color:var(--text); font-family:inherit;}
+.pk-list{display:grid; gap:6px;}
+.pk-item{display:flex; align-items:center; gap:8px; text-align:left; background:var(--panel); border:1px solid var(--line);
+  border-radius:8px; padding:9px 10px; font-size:14px; font-weight:700; color:var(--text); font-family:inherit;}
+.pk-item .cl{font-size:11px; font-weight:700; padding:2px 7px; border-radius:9px; flex:0 0 auto;}
+.pk-item .cl.normal{background:#ece6d8; color:#6b5d40;}
+.pk-item .cl.regen{background:#dcefe0; color:#21613a;}
+.pk-item .cl.rainbow{background:#f1def0; color:#8a2f7c;}
+.pk-item .cl.light{background:#fbf0c8; color:#7a5a00;}
+.pk-item .lv{margin-left:auto; font-size:11px; color:var(--dim); font-weight:400; white-space:nowrap;}
+.pk-item.cur{border-color:var(--sew); box-shadow:inset 0 0 0 1px var(--sew);}
+.pk-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.pk-grid button{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 8px;
+  font-size:15px; font-weight:800; color:var(--text); font-family:inherit;}
+.pk-grid button small{display:block; font-size:11px; font-weight:400; color:var(--dim); margin-top:2px;}
+
+/* 特技一覧 */
+.sk-note{font-size:11px; color:var(--dim); margin-top:6px;}
+.set-note{font-size:11px; color:var(--dim); margin:4px 0 0;}
+
+@media (min-width:760px){
+  .sboard{max-width:520px; gap:12px;}
+  .scell{min-height:120px;}
+  .scell .rem{font-size:46px;}
+  .scell .base{font-size:13px;}
+  .cyc{max-width:520px;}
+}

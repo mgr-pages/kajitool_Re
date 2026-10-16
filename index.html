@@ -1,199 +1,61 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" class="pg-top">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>鍛冶アドバイザーV3.00</title>
+<!-- 版はここが元。kaji.html・sew.html の版は tools/stamp.py がここから書き写す -->
+<title>職人アドバイザーV4.00</title>
 <!-- アプリのアイコン。PNG は icon.svg から node tools/make-icons.js で作る -->
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=a56a9fc6">
+<link rel="stylesheet" href="style.css?v=c24d6a6d">
 </head>
 <body>
 
-<div class="hdr">
-  <div class="hdr-title">
-    <!-- 押すと「職人 ▶ 種類 ▶ 商材」の順に選ぶ画面を開く(一覧は engine.js の CRAFT_ITEMS から ui.js が作る) -->
-    <button class="mat-sel" id="s-preset" onclick="openPicker()" aria-haspopup="dialog">
-      <span class="ms-grp" id="v-grp"></span><span class="ms-name" id="v-name"></span>
-    </button>
-    <span class="hint-cust" id="v-cust" style="display:none">要設定</span>
-    <button class="hdr-reset" onclick="confirmReset()">最初から</button>
-  </div>
-  <div class="hdr-row">
-    <div class="stat tap" onclick="openPad('temp')">
-      <span class="lbl">温度</span><span class="val" id="v-temp">1000</span><span class="lbl">℃</span>
-      <span class="edit" aria-hidden="true">✎</span>
-    </div>
-    <div class="stat tap" onclick="openPad('focus')">
-      <span class="lbl">集中力</span><span class="val" id="v-focus">253</span>
-      <span class="edit" aria-hidden="true">✎</span>
-    </div>
-    <!-- 必殺(ヘパイトスの炎)。押すと状態(なし・チャージ・効果中・使用済み)を選ぶ画面を開く -->
-    <div class="stat tap hs" id="hsBox" onclick="openHS()">
-      <span class="lbl">必殺</span><span class="val" id="v-hs">なし</span>
-    </div>
-  </div>
-  <div class="badges" id="badges"></div>
-</div>
+<!-- トップページ: アプリを開いた時に、鍛冶と裁縫のどちらを使うかを選ぶ(利用者の指示) -->
+<main class="top">
+  <header class="top-hd">
+    <h1 class="top-title">職人アドバイザー</h1>
+    <p class="top-lead">職人を選んでください</p>
+  </header>
 
-<div class="main">
-<div class="board">
-  <div id="board"></div>
-  <!-- ゲージの色の見方。常に出すと文字が増えるので、「?」を押した時だけ出す(利用者の指示) -->
-  <div class="lg-row"><button class="lg-toggle" id="lgBtn" onclick="toggleLegend()" aria-expanded="false" aria-controls="legend" aria-label="ゲージの色の見方">?</button></div>
-  <div class="legend" id="legend" hidden>
-    <span><i class="lg-green"></i>成功ゾーン</span>
-    <span><i class="lg-blue"></i>通常の伸び</span>
-    <span><i class="lg-red"></i>会心の伸び</span>
-    <span><i class="lg-cur"></i>現在値</span>
-  </div>
-</div>
+  <nav class="top-crafts" aria-label="職人">
+    <a class="craft craft-kaji" href="kaji.html">
+      <svg class="craft-ic" viewBox="-40 -40 80 80" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M-31 9 H23 Q33 9 36 2 Q35 17 17 18 L11 29 H19 V35 H-19 V29 H-11 L-16 18 Q-31 17 -31 9 Z"/>
+          <g transform="translate(-4 -14) rotate(-35)"><rect x="-3.5" y="-14" width="7" height="40" rx="2.5"/>
+            <rect x="-15" y="-25" width="30" height="12" rx="2.5"/></g>
+        </g>
+      </svg>
+      <span class="craft-tx">
+        <span class="craft-nm">鍛冶</span>
+        <span class="craft-st" id="st-kaji"></span>
+      </span>
+    </a>
+    <a class="craft craft-sew" href="sew.html">
+      <svg class="craft-ic" viewBox="-40 -40 80 80" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+          <g transform="translate(14 0)"><rect x="-12" y="-28" width="24" height="7" rx="2"/><rect x="-12" y="21" width="24" height="7" rx="2"/>
+            <rect x="-8" y="-21" width="16" height="42"/><path d="M-8 -12 L8 -8 M-8 -2 L8 2 M-8 8 L8 12"/></g>
+          <g transform="translate(-19 3) rotate(-62)"><path d="M-30 0 L22 -2.2 Q27 -2.2 27 0 Q27 2.2 22 2.2 Z"/>
+            <path d="M23 0 C33 -8 26 -20 13 -14 C3 -9 8 4 -4 9"/></g>
+        </g>
+      </svg>
+      <span class="craft-tx">
+        <span class="craft-nm">裁縫</span>
+        <span class="craft-st" id="st-sew"></span>
+      </span>
+    </a>
+  </nav>
 
-<div class="side">
-<div class="foot" id="footPanel">
-  <div class="rec" id="rec"><div class="rec-empty">「推奨手を計算」を押してください</div></div>
-  <div id="execPanel"></div>
-  <!-- 状況に応じて「計算する/打った/結果を入力」を切り替える、画面で唯一の主ボタン -->
-  <div class="act-row">
-    <!-- 直前の「打った」の反映を戻す。戻せる時だけ出す -->
-    <button class="sub-btn" id="undoBtn" onclick="undoExec()" style="display:none">取り消す</button>
-    <button class="calc" id="calcBtn" onclick="onPrimary()">推奨手を計算</button>
-  </div>
-  <div id="calcBar" class="calcbar" style="display:none"><div></div></div>
-</div>
+  <div class="ver top-ver" id="v-ver"></div>
+</main>
 
-<details class="acc" id="planAcc" open style="display:none">
-  <summary>推奨手順(目安)</summary>
-  <div class="body" id="detail"></div>
-</details>
-
-<details class="acc">
-  <summary>技一覧(現在温度)</summary>
-  <div class="body"><table class="sk" id="skTable"></table><div id="skNote"></div></div>
-</details>
-
-<details class="acc" id="setAcc">
-  <summary>設定<span class="gear" id="v-gear">—</span></summary>
-  <div class="body">
-    <div class="set-row"><label>職人レベル</label>
-      <input type="number" id="s-level" min="1" max="80" value="80"></div>
-    <div class="set-row"><label>ハンマー</label>
-      <select id="s-hammer">
-        <option value="copper">銅</option><option value="iron">鉄</option>
-        <option value="silver">銀</option><option value="platinum">プラチナ</option>
-        <option value="super">超</option><option value="miracle">奇跡</option>
-        <option value="light" selected>光</option>
-      </select></div>
-    <div class="set-row"><label>できのよさ</label>
-      <select id="s-star">
-        <option value="0">★0</option><option value="1">★1</option>
-        <option value="2">★2</option><option value="3" selected>★3</option>
-      </select></div>
-    <div class="set-row"><label>地金特性</label>
-      <select id="s-trait">
-        <option value="shuchu" selected>集中力変化</option>
-        <option value="none">なし</option><option value="tataki">たたき変化</option>
-        <option value="modori">戻り(メーター減少)</option><option value="kaishin">威力会心率上昇</option>
-      </select></div>
-    <div id="zoneEdit" style="display:none">
-      <div class="zpanel">
-        <div class="zhead">手動設定</div>
-        <div class="zstep">地金特性を選び、使うマスとゾーンを入れて反映</div>
-        <div class="zsize" id="zoneSize">
-          <span class="zl">盤</span>
-          <button type="button" data-n="6" onclick="setCustomSize(6)">6マス</button>
-          <button type="button" data-n="8" onclick="setCustomSize(8)">8マス</button>
-        </div>
-        <div id="zoneRows"></div>
-        <div class="zrow zth">
-          <span class="zl">許容誤差</span>
-          <span class="zs" id="z-th-auto"></span>
-        </div>
-        <div id="zoneWarn" style="font-size:11.5px;color:#e5534b;margin-top:6px;display:none"></div>
-        <div style="display:flex;align-items:center;margin-top:8px">
-          <button class="calc" style="flex:0 0 auto" onclick="applyZones()">ゾーンを反映</button>
-          <span class="zdirty" id="zoneDirty" style="display:none">未反映の変更があります</span>
-        </div>
-      </div>
-    </div>
-    <!-- 届いている版の確認用。更新が反映されない時に、どのファイルが古いか分かるようにする -->
-    <div class="ver" id="v-ver"></div>
-
-  </div>
-</details>
-
-</div>
-</div>
-
-<!-- 結果の選択。打ち始めた後のリセット・素材の切り替えの前に必ず選ぶ(記録用) -->
-<div class="modal" id="outcomeModal">
-  <div class="pad">
-    <div class="pad-hd">今回の結果を選んでください</div>
-    <div class="oc-row">
-      <button class="cand" onclick="chooseOutcome('大成功')">大成功</button>
-      <button class="cand" onclick="chooseOutcome('成功')">成功</button>
-      <button class="cand" onclick="chooseOutcome('失敗')">失敗</button>
-      <button class="cand" onclick="chooseOutcome('途中でやめた')">途中でやめた</button>
-    </div>
-    <button class="cand-more" onclick="closeOutcome()">戻る(リセットしない)</button>
-  </div>
-</div>
-
-<!-- 必殺の状態の選択。チャージが来た時に「チャージ」を選ぶ。使った手を反映しなかった時や押し間違えた時も、ここで合わせる -->
-<div class="modal" id="hsModal" onclick="if(event.target===this)closeHS()">
-  <div class="pad">
-    <button class="pad-close" onclick="closeHS()">閉じる</button>
-    <div class="pad-hd">必殺の状態を選んでください</div>
-    <div class="oc-row">
-      <button class="cand hs-opt" data-hs="none" onclick="setHS('none')">なし<small>チャージが来ていない</small></button>
-      <button class="cand hs-opt" data-hs="charged" onclick="setHS('charged')">チャージ<small>来たが、まだ使っていない</small></button>
-      <button class="cand hs-opt" data-hs="active" onclick="setHS('active')">効果中<small>使った。次に叩く技は必ず会心</small></button>
-      <button class="cand hs-opt" data-hs="used" onclick="setHS('used')">使用済み<small>使って、叩いた(効果は終わり)</small></button>
-    </div>
-  </div>
-</div>
-
-<!-- 商材の選択。職人 ▶ 種類 ▶ 商材 の順にたどる。上の道しるべを押すと前の段に戻る -->
-<div class="modal" id="pickModal" onclick="if(event.target===this)closePicker()">
-  <div class="pad pick">
-    <button class="pad-close" onclick="closePicker()">閉じる</button>
-    <div class="pad-hd">商材を選ぶ</div>
-    <div class="pk-crumbs" id="pkCrumbs"></div>
-    <div id="pkBody"></div>
-  </div>
-</div>
-
-<div class="modal" id="modal" onclick="if(event.target===this)closePad()">
-  <div class="pad">
-    <button class="pad-close" onclick="closePad()">閉じる</button>
-    <div class="pad-hd" id="padTitle"></div>
-    <div id="padCand" style="display:none"></div>
-    <div id="padKeys">
-    <div class="pad-disp"><span class="pre" id="padPre"></span><span id="padVal">0</span></div>
-    <div class="pad-res" id="padRes"></div>
-    <div class="keys k4">
-      <button onclick="key('7')">7</button><button onclick="key('8')">8</button><button onclick="key('9')">9</button>
-      <button onclick="key('del')" class="del word">1字消す</button>
-      <button onclick="key('4')">4</button><button onclick="key('5')">5</button><button onclick="key('6')">6</button>
-      <button onclick="key('plus')" class="op" id="kPlus">＋</button>
-      <button onclick="key('1')">1</button><button onclick="key('2')">2</button><button onclick="key('3')">3</button>
-      <button onclick="key('minus')" class="op" id="kMinus">－</button>
-      <!-- 閉じるは右上にあるので、ここは 0 と 決定 だけにする -->
-      <button onclick="key('0')" style="grid-column:span 2">0</button>
-      <button onclick="commit()" class="ok" style="grid-column:span 2">決定</button>
-    </div>
-    </div>
-  </div>
-</div>
-
-<script src="engine.js?v=a56a9fc6"></script>
-<script src="mc-pool.js?v=a56a9fc6"></script>
-<script src="gamelog.js?v=a56a9fc6"></script>
-<script src="ui.js?v=a56a9fc6"></script>
+<script src="top.js?v=c24d6a6d"></script>
 </body>
 </html>

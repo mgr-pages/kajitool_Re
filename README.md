@@ -1,15 +1,16 @@
-# 鍛冶アドバイザー
+# 職人アドバイザー
 
-ドラクエ10の鍛冶(超素材)で、盤面・温度・集中力から推奨手を出すツール。
+ドラクエ10の職人(鍛冶・裁縫)で、盤面などから推奨手を出すツール。
 
 ## 使い方
 
-`index.html` をブラウザで開く。`style.css`・`engine.js`・`ui.js` を同じ場所に置いておくこと
-(`index.html` だけを持ち出しても動かない)。
+`index.html`(トップページ)をブラウザで開き、鍛冶か裁縫を選ぶ。鍛冶は `kaji.html`、裁縫は `sew.html`。
+すべてのファイルを同じ場所に置いておくこと(HTML だけを持ち出しても動かない)。
 
 ## 版の番号
 
-`index.html` の `<title>` にある `V1.xx`。画面の一番下と、対局の記録に出る。
+`index.html` の `<title>` にある `V4.xx`。`kaji.html`・`sew.html` の番号は `tools/stamp.py` が書き写す。
+画面の一番下と、対局の記録に出る。
 マージのたびに、PR を出す時にその PR の中で上げる。上げ方は PR の中で一番大きい変更の種類で決める。
 
 | 変更の種類 | 上げ方 | 例 |
@@ -22,7 +23,8 @@
 
 | ファイル | 役割 |
 |---|---|
-| `index.html` | 画面の骨組み。下の3ファイルを読み込む |
+| `index.html` | トップページ(鍛冶/裁縫を選ぶ)。`top.js` を読み込む |
+| `kaji.html` | 鍛冶の画面の骨組み。下の鍛冶のファイルを読み込む |
 | `style.css` | 見た目 |
 | `engine.js` | 計算。状態 `G`・素材データ・推奨手の評価・先読み・理想値の推定・手順の作成。画面(DOM)には触れない |
 | `ui.js` | 画面。描画・テンキー・設定・保存・起動処理 |
@@ -31,8 +33,20 @@
 | `tests/sim.js` | 計算エンジンの成績テスト |
 | `tests/baseline.json` | 成績テストの基準 |
 | `tests/power-table.js` | 温度別の威力の実測表(計算式の照合用) |
+| `gamelog.js` | 対局の記録の送信(鍛冶・裁縫で共通) |
+| `sew.html` | 裁縫の画面の骨組み。下の裁縫のファイルを読み込む |
+| `sew.css` | 裁縫の画面だけの見た目(共通の部品は `style.css`) |
+| `sew-recipes.js` | 裁縫のレシピ(`SEW_RECIPES`。部位・布・装備Lv・各マスの基準値・ぬいパワーの順番) |
+| `sew-engine.js` | 裁縫のルール(`SEW`)。乱数で1局を進める関数と、画面用にゲームで起きたことを入れて進める関数(`startTurn`・`applyMove`)。画面には触れない |
+| `sew-ai.js` | 裁縫の推奨手(`SEW_AI`)。終盤の際どい判断だけ試し打ち(先読み)で確かめる |
+| `sew-ui.js` | 裁縫の画面。描画・入力・保存・記録 |
+| `sew-worker.js` | 裁縫の推奨手を画面とは別のスレッドで計算する Worker |
+| `tests/sew-rules.js` | 裁縫のルールの回帰テスト(指紋) |
+| `tests/sew-play.js` | 画面用の進め方が、乱数で進めた局面と同じになるかの照合 |
+| `tools/sew-try.js`・`sew-trace.js`・`sew-ab.js`・`sew-mc.js` | 裁縫の推奨手の成績・1局の流れ・同じ種での打ち比べ(作業用) |
 
-`engine.js` → `mc-pool.js` → `ui.js` の順に通常の `<script>` で読み込む。
+鍛冶は `engine.js` → `mc-pool.js` → `ui.js`、裁縫は `sew-recipes.js` → `sew-engine.js` → `sew-ai.js` → `gamelog.js` → `sew-ui.js` の順に通常の `<script>` で読み込む。
+裁縫の名前は `SEW`・`SEW_AI`・`SEW_RECIPES` の中に入れてあり、鍛冶の大域変数とはぶつからない。
 ES Modules は `file://` で開くと読み込めないため使っていない。
 
 先読みは端末のコア数(最大8)ぶんの Worker で分担し、計算中も画面が固まらない。
@@ -41,7 +55,7 @@ ES Modules は `file://` で開くと読み込めないため使っていない�
 
 ## 更新するとき
 
-`index.html` と `style.css` が読み込むファイルには、中身から計算した版の印(`?v=...`)が付いている。
+各ページ(`index.html`・`kaji.html`・`sew.html`)と `style.css` が読み込むファイルには、中身から計算した版の印(`?v=...`)が付いている。
 ファイル名が同じだとブラウザが古いファイルを使い続けることがあるため。
 コードや見た目を変えたら、コミットの前に次を実行して印を付け直す。
 
@@ -49,8 +63,9 @@ ES Modules は `file://` で開くと読み込めないため使っていない�
 python3 tools/stamp.py
 ```
 
-背景の柄(`bg-motif.svg`)は `tools/make-bg-motif.py` で作っている。柄を変える時はスクリプトを直して
-`python3 tools/make-bg-motif.py > bg-motif.svg` で作り直し、続けて `tools/stamp.py` を実行する。
+背景の柄(鍛冶の `bg-motif.svg`・裁縫の `bg-motif-sew.svg`)は `tools/make-bg-motif.py` で作っている。柄を変える時はスクリプトを直して
+`python3 tools/make-bg-motif.py > bg-motif.svg`(裁縫は `python3 tools/make-bg-motif.py sew > bg-motif-sew.svg`)で作り直し、
+続けて `tools/stamp.py` を実行する。
 
 ## 成績テスト
 
@@ -68,6 +83,13 @@ node tests/sim.js --games 5000 --mc 0 --preset kagayaki   # 条件を変えて�
   先読みは1局に15秒〜3分かかるため局数が少なく、先読みの行の大成功率は成績の比較には使えない。
   先読みの行は「挙動が1手でも変わったか」を指紋(`[xxxxxxxx]`)で検出するためのもの。
 - 威力の計算式を実測表と照合する(現在248点すべて一致)。
+
+裁縫のテスト(どちらも数秒):
+
+```
+node tests/sew-rules.js      # ルールの指紋が記録と同じか。違えば終了コード1
+node tests/sew-play.js       # 画面用の進め方が、乱数で進めた局面と同じになるか。違えば終了コード1
+```
 
 エンジンを変更したら:
 

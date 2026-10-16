@@ -9,10 +9,16 @@
   --ink:#7a5c28;          /* 枠の濃い方 */
   --sunk:#e6d5ae;         /* バーやテンキーの窪んだ面 */
   --acc:var(--ember);     /* 操作を促す箇所(手動設定・点灯マスの選択・計算中のバー) */
+  /* 日本語のフォントだけを並べる(中国語のフォントは一切使わない。利用者の指示)。
+     端末ごとの標準の日本語フォント → 入っていることの多い日本語フォントの順。
+     汎用の sans-serif は最後の受け皿(lang="ja" なので日本語のフォントが選ばれる) */
+  --font-ja:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic","YuGothic",
+    "Meiryo","BIZ UDPGothic","Noto Sans JP","Noto Sans CJK JP","Source Han Sans JP",
+    "IPAPGothic","IPAGothic",sans-serif;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0; padding:0; background:var(--bg); color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+  font-family:-apple-system,BlinkMacSystemFont,var(--font-ja);
   overscroll-behavior:none;}
 body{padding-bottom:96px;}
 input,select,button{font-family:inherit; -webkit-appearance:none; appearance:none;}
@@ -190,8 +196,7 @@ input,select,button{font-family:inherit; -webkit-appearance:none; appearance:non
    外部フォントは読み込まないので単一ファイルのまま。 */
 .cell .cur, .cell .zn, .stat .val,
 .pad-disp, .pad-res, table.sk, .zrow input, .cand, .pexec .s, .hstep .ht{
-  font-family:"IBM Plex Sans","Source Sans 3","Noto Sans","Segoe UI",
-    "Hiragino Sans","Noto Sans JP",system-ui,-apple-system,sans-serif;
+  font-family:"IBM Plex Sans","Source Sans 3","Noto Sans","Segoe UI",-apple-system,var(--font-ja);
   font-variant-numeric:tabular-nums lining-nums;
   font-feature-settings:"tnum" 1,"lnum" 1;
 }
@@ -501,14 +506,14 @@ table.sk .cst{text-align:right; font-weight:700;}
 }
 /* 柄はページ全体の地(html)に敷く。body に敷いて background-attachment:fixed にすると、
    iPhone の Safari などで柄が出ないことがあるため、固定もしない(ページと一緒に流れる)。 */
-:root{--css-ver:"a56a9fc6";}
+:root{--css-ver:"c24d6a6d";}
 .ver{margin-top:12px; font-size:10.5px; color:var(--dim); text-align:right;}
 .ver b{color:var(--red);}   /* 表示中の見た目のファイルの版(tools/stamp.py が付け直す) */
 html{
   /* 地は全面同じ色。上部を明るくするグラデーションは、ページの高さで途切れて
      下の方だけ色が変わって見えたためやめた。 */
   background:
-    url("bg-motif.svg?v=a56a9fc6") 0 0 / 900px 900px repeat,
+    url("bg-motif.svg?v=c24d6a6d") 0 0 / 900px 900px repeat,
     var(--bg);
 }
 body{background:transparent;}
@@ -681,3 +686,53 @@ body{background:transparent;}
   .pad.pick{width:520px; min-height:0;}
   .mat-sel .ms-grp{font-size:13px;}
 }
+
+/* =====================================================================
+   職人アドバイザー(鍛冶・裁縫の2職人)で足したもの
+   ===================================================================== */
+/* 幅が狭い時は、素材・レシピの名前を優先する(小さな見出しを省く。トップへ戻るボタンの分だけ狭くなったため) */
+@media (max-width:359px){ .mat-sel .ms-grp{display:none;} }
+/* ヘッダーの左端: トップページへ戻る */
+.hdr-title .hdr-home{flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+  width:38px; height:36px; background:var(--panel); border:1px solid var(--line); border-radius:6px;
+  color:var(--ink); box-shadow:var(--raise); text-decoration:none;}
+.hdr-title .hdr-home svg{width:20px; height:20px;}
+.hdr-title .hdr-home:active{background:var(--sunk);}
+
+/* ===== トップページ(index.html) ===== */
+/* トップページの地は柄なし。柄は職人ごとの札に敷いて、どちらの職人かを見分けやすくする */
+html.pg-top{background:var(--bg);}
+.pg-top body{padding-bottom:24px;}
+.top{max-width:560px; margin:0 auto; padding:28px 16px 24px;}
+.top-hd{text-align:center; margin:12px 0 22px;}
+.top-title{margin:0; font-size:26px; font-weight:800; color:var(--text); letter-spacing:.08em;}
+.top-title::after{content:''; display:block; width:120px; margin:10px auto 0; border-bottom:3px double var(--ink);}
+.top-lead{margin:12px 0 0; color:var(--dim); font-size:14px;}
+.top-crafts{display:grid; gap:14px;}
+.craft{display:flex; align-items:center; gap:16px; padding:18px; min-height:112px;
+  border-radius:14px; text-decoration:none; color:var(--text); border:1px solid rgba(198,172,116,.9);
+  box-shadow:inset 0 1px 0 #fff, 0 2px 0 rgba(122,92,40,.28), 0 6px 14px rgba(74,52,24,.10);}
+.craft:active{transform:translateY(1px); box-shadow:inset 0 1px 0 #fff, 0 1px 0 rgba(122,92,40,.28);}
+.craft-kaji{background:url("bg-motif.svg?v=c24d6a6d") 0 0 / 600px 600px repeat,
+  linear-gradient(180deg,#fffaf0 0%, var(--panel) 60%, #f3e6c8 100%);}
+.craft-sew{background:url("bg-motif-sew.svg?v=c24d6a6d") 0 0 / 600px 600px repeat,
+  linear-gradient(180deg,#fdfaf3 0%, #f6f0e4 60%, #ece3d2 100%);}
+.craft-ic{flex:0 0 64px; width:64px; height:64px; color:var(--ink);}
+.craft-sew .craft-ic{color:#4f4a78;}
+.craft-tx{display:flex; flex-direction:column; gap:4px; min-width:0;}
+.craft-nm{font-size:24px; font-weight:800; letter-spacing:.12em;}
+.craft-st{font-size:12px; font-weight:700; color:var(--ember);}
+.craft-st:empty{display:none;}
+.craft::after{content:'›'; margin-left:auto; font-size:30px; line-height:1; color:var(--dim);}
+.top-ver{margin-top:28px; text-align:center;}
+@media (min-width:760px){
+  .top{max-width:760px; padding-top:56px;}
+  .top-crafts{grid-template-columns:1fr 1fr; gap:20px;}
+  .craft{flex-direction:column; justify-content:center; text-align:center; min-height:240px; gap:14px;}
+  .craft-ic{width:88px; height:88px; flex-basis:88px;}
+  .craft::after{display:none;}
+}
+
+/* ===== 裁縫の画面(sew.html)の地 ===== */
+/* 柄は裁縫用(bg-motif-sew.svg)。地の色などは sew.css の html.pg-sew */
+html.pg-sew{background:url("bg-motif-sew.svg?v=c24d6a6d") 0 0 / 900px 900px repeat, #efe7d9;}
