@@ -43,6 +43,8 @@ const DEF = {
                      // 画面(sew-ui.js の SEW_AI_PARAMS)では { K:3, R:32, z:2, lo:0.02, hi:0.98, gap:0.1, seed:1, ms:5000 } を使う
                      // (2026-10-16、代表9レシピ・各300局: 種1000 72.5% → 74.3%(z=4.72)・種5000 72.9% → 74.7%(z=4.46))。
                      // 試験の道具では遅くなるので、ふだんは使わない
+  bulkMC: null,      // 削り(終盤の前)の手も試し打ちで確かめる { K: 候補の数, R: 本数, z: 乗り換えの基準, seed, ms: 時間の上限(省略可) }。
+                     // 候補は ふだんの手・精神統一(できる時)・ふだんの評価の上位。ふだんの手より z 以上はっきり良い時だけ乗り換える
   endMinP: 0.002,    // 終盤の評価で、どの手でも★3の確率がこれ未満なら、ふだんの選び方に戻す
   endTieW: 0.01,     // 終盤の手選びで、集中力を endTieMul 倍に減らした時の★3の確率を、この重みで足す。
   endTieMul: 0.6,    // 集中力が多いと確率がどの手でも1に張り付き、並び順で集中力を無駄にする手が選ばれていたので、その同点を崩す
@@ -597,14 +599,22 @@ function regenValueSlow(rv2, g, f2, T, qt, prm, ep, i){
 }
 
 // 今の局面で打つ手。g は beginTurn の後(今のターンの強さ・布の特性が出ている)
+// 推奨手。ふだんの選び方の手を、設定があれば試し打ちで確かめる(終盤は chooseEndMC、削りは chooseBulkMC)。
+// 試し打ちの中(ctx._roll)では確かめない
 function choose(g, cfg, ctx){
+  const m = choosePlain(g, cfg, ctx);
+  const P = ctx.prm.bulkMC;
+  if(!P || ctx._roll || m.finish || m.end) return m;
+  return chooseBulkMC(g, cfg, ctx, m, P);
+}
+function choosePlain(g, cfg, ctx){
   const j = SEW.judge(g);
   const allYellow = g.base.every((b, i) => Math.abs(b - g.cum[i]) <= SEW.P.yellow);
   if(allYellow && j.total <= ctx.T) return { finish: true, why: '★3の範囲' };
   if(g.focus < 5) return { finish: true, why: '集中力切れ' };
   if(ctx.prm.endOn && g.base.every((b, i) => Math.abs(b - g.cum[i]) <= ctx.prm.endR)){
     const m = ctx.prm.endMC && !ctx._roll ? chooseEndMC(g, cfg, ctx) : chooseEnd(g, cfg, ctx);
-    if(m) return m;
+    if(m){ m.end = true; return m; }
   }
   const best = bestAction(g, cfg, ctx);
   // 精神統一(固定の最後のターンか、固定していない時)
@@ -665,6 +675,26 @@ function chooseEndMC(g, cfg, ctx){
     cands.push(m);
   }
   if(cands.length < 2 || base.pStar3 > P.hi) return base;
+  return mcCompare(g, cfg, ctx, cands, P);
+}
+// 削りの手を試し打ちで確かめる。候補は ふだんの手(base)・精神統一(固定できる時)・ふだんの評価の上位で、P.K 個まで
+function chooseBulkMC(g, cfg, ctx, base, P){
+  const key = m => JSON.stringify([m.skill, m.anchor || null]);
+  const cands = [base], seen = new Set([key(base)]);
+  const push = m => { const k = key(m); if(!seen.has(k)){ seen.add(k); cands.push(m); } };
+  const sei = SEW.SKILL.seishin;
+  if(cands.length < P.K && sei.lv <= cfg.level && g.lockRem <= 1 && g.focus >= sei.cost + 5) push({ skill: 'seishin' });
+  const sc = [];
+  for(const a of ctx.actions){ const e = evalAction(g, cfg, ctx, a); if(e) sc.push(e); }
+  sc.sort((x, y) => y.net - x.net);
+  for(const e of sc){ if(cands.length >= P.K) break; push({ skill: e.a.skill, anchor: e.a.anchor, net: e.net }); }
+  if(cands.length < 2) return base;
+  return mcCompare(g, cfg, ctx, cands, P);
+}
+// 候補(先頭がふだんの手)ごとに同じ種で P.R 本ずつ最後まで打ち切り、ふだんの手より「片方だけ★3」の本数の差で
+// z ≥ P.z はっきり良い手があれば、その手に乗り換える。種は局面と P.seed から作る(同じ局面では同じ手)
+function mcCompare(g, cfg, ctx, cands, P){
+  const base = cands[0];
   let h = (P.seed + g.turn * 7919 + g.focus * 104729) >>> 0;
   for(let i = 0; i < g.n; i++) h = (Math.imul(h ^ (g.cum[i] + 1000), 2654435761) + i) >>> 0;
   // 本数ごとに全候補を打つ(同じ種どうしで比べるため)。P.ms(ミリ秒)を過ぎたら、そこまでの本数で比べる
@@ -737,7 +767,7 @@ function playGame(recipe, cfg, seed, ctx, opts){
   return { star: j.star, total: j.total, focus: g.focus, turns: g.turn };
 }
 
-const SEW_AI = { DEF, prepare, choose, chooseMC, bestAction, evalAction, playGame, finishTable };
+const SEW_AI = { DEF, prepare, choose, chooseMC, bestAction, evalAction, playGame, finishTable, rollout, candidates };
 root.SEW_AI = SEW_AI;
 if(typeof module !== 'undefined' && module.exports) module.exports = SEW_AI;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
