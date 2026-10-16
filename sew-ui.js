@@ -16,7 +16,8 @@
 const SKEY = 'sewAdvisorStateV1';
 const SEW_LOG_CUR = 'sewAdvisorLogCurV1';
 // 終盤の際どい判断の試し打ち(sew-ai.js の chooseEndMC)。引き継ぎ資料の 9-4
-const SEW_AI_PARAMS = { endMC: { K: 3, R: 32, z: 2, lo: 0.02, hi: 0.98, gap: 0.1, seed: 1 } };
+// ms: 1手の試し打ちの時間の上限(遅い端末で待たせすぎないため。上限に届かなければ、上限なしと同じ手)
+const SEW_AI_PARAMS = { endMC: { K: 3, R: 32, z: 2, lo: 0.02, hi: 0.98, gap: 0.1, seed: 1, ms: 5000 } };
 const CAT_JA = { head: 'アタマ', body_upper: 'からだ上', body_lower: 'からだ下', arm: 'ウデ', leg: '足' };
 const CAT_ORDER = ['body_upper', 'body_lower', 'head', 'arm', 'leg'];
 const CLOTH_JA = { normal: '通常の布', regen: '再生布', rainbow: '虹布', light: '光布' };
@@ -170,8 +171,8 @@ function calcRec(){
   S.rec = null; renderAll();
   const g = S.g, my = ++CALC_SEQ;
   setBusy(true);
-  // 必殺がたまっている時: 削りの弱い・普通のターン(固定していない時)に使う
-  if(g.hsCharged && !g.hsUsed && S.level >= SEW.SKILL.muga.lv && g.lockRem === 0 && (g.power === 'weak' || g.power === 'normal')){
+  // 必殺がたまっている時: すぐ使う(弱い・普通のターンまで待つより★3 が多い。引き継ぎ資料の 9-4 の必殺)
+  if(g.hsCharged && !g.hsUsed && S.level >= SEW.SKILL.muga.lv){
     S.rec = { skill: 'muga', why: 'この後ずっと会心率2倍(消費0)' };
     setBusy(false); renderAll(); save(); return;
   }
@@ -352,7 +353,7 @@ function setPower(p, shiftCrit){
 }
 function setGlow(i){
   if(!S.turnIn) return;
-  S.turnIn.glow = i; maybeStartTurn();
+  S.turnIn.glow = i; S.msg = null; maybeStartTurn();
 }
 function openRegen(i){
   NUM = { kind: 'regen', i, buf: '', neg: false };
@@ -541,8 +542,9 @@ function renderHeader(){
       bd.push(`<span class="badge half">${s}</span>`);
     }
     if(S.level >= SEW.SKILL.muga.lv){
-      const hs = g.hsUsed ? '使用済み' : g.muga ? '効果中' : g.hsCharged ? 'チャージ' : 'なし';
-      bd.push(`<button class="badge ${g.hsCharged ? 'boost' : 'off'} hs-chip" onclick="toggleHS()">必殺: ${hs}</button>`);
+      // 無我の境地は使った後ずっと効く(muga と hsUsed が両方立つ)ので、効果中を先に見る
+      const hs = g.muga ? '効果中(会心率2倍)' : g.hsUsed ? '使用済み' : g.hsCharged ? 'チャージ' : 'なし';
+      bd.push(`<button class="badge ${g.hsCharged || g.muga ? 'boost' : 'off'} hs-chip" onclick="toggleHS()">必殺: ${hs}</button>`);
     }
   }
   document.getElementById('badges').innerHTML = bd.join('');
@@ -579,7 +581,7 @@ function renderBoard(){
     const cls = ['scell', Math.abs(v) <= SEW.P.yellow ? 'yellow' : v < 0 ? 'red' : '',
                  tg.has(i) ? 'tg' : '', i === anchor ? 'anchor' : '', pend.has(i) ? 'pend' : ''].filter(Boolean).join(' ');
     const tags = (g.glow === i && S.phase !== 'turn' ? '<span class="tag glow">光</span>' : '') + (g.shitsuke[i] ? '<span class="tag shi">しつけ</span>' : '');
-    h += `<button class="${cls}" onclick="tapCell(${i})"><span class="no">${i + 1}</span><span class="rem">${v}</span>`
+    h += `<button class="${cls}" onclick="tapCell(${i})"><span class="no">${i + 1}${pend.has(i) ? '<span class="in">入力</span>' : ''}</span><span class="rem">${v}</span>`
        + `<span class="base">基準値 ${g.base[i]}</span>${tags ? `<span class="tags">${tags}</span>` : ''}</button>`;
   }
   el.innerHTML = h;
@@ -587,8 +589,8 @@ function renderBoard(){
   const yel = g.base.filter((b, i) => Math.abs(b - g.cum[i]) <= SEW.P.yellow).length;
   // ★3 は全マスが黄色の時だけ。それまでは黄色のマスの数、全部黄色になったら誤差の合計を出す
   document.getElementById('ssum').innerHTML = yel < g.n
-    ? `黄色のマス <b>${yel} / ${g.n}</b>(★3 は全マス黄色・誤差の合計 ${T} 以下)`
-    : `誤差の合計 <b class="${j.total <= T ? 'ok' : 'ng'}">${j.total}</b>(★3 は ${T} 以下)`;
+    ? `黄色のマス <b>${yel} / ${g.n}</b><span class="ssub">★3 は全マス黄色で誤差の合計 ${T} 以下</span>`
+    : `誤差の合計 <b class="${j.total <= T ? 'ok' : 'ng'}">${j.total}</b><span class="ssub">★3 は ${T} 以下</span>`;
   // ぬいパワーの順番
   const lockNote = g.lockRem > 0 && g.lockedPower ? `<span class="lock">固定中は止まる</span>` : '';
   document.getElementById('cycle').innerHTML = '<div class="cyc-h">ぬいパワーの順番(印が今の位置。ずれていたら押して直す)</div>'
@@ -616,7 +618,12 @@ function setCycleIdx(k){
 function tapCell(i){
   if(!S.g) return;
   if(S.phase === 'turn' && S.turnIn){
-    if(S.turnIn.needGlow && S.turnIn.glow === null){ if(rem(i) >= SEW.P.yellow + 1) setGlow(i); return; }
+    if(S.turnIn.needGlow && S.turnIn.glow === null){
+      // 光るのは残りが黄色の幅より大きいマスだけ。ほかのマスを押した時は、押せない理由を出す
+      if(rem(i) >= SEW.P.yellow + 1) setGlow(i);
+      else { S.msg = `${cellName(i)} は光りません(光るのは残りが ${SEW.P.yellow + 1} 以上のマス)`; renderAll(); }
+      return;
+    }
     if(S.turnIn.needRegen && !S.turnIn.regen){ openRegen(i); return; }
   }
   if(S.phase === 'input' && S.midare){ openCell(i); return; }

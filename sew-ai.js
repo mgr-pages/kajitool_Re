@@ -39,8 +39,8 @@ const DEF = {
                      // 9マスだけ(2026-10-14: 再生布の9マス4レシピで、種5000 z=6.72・種9000 z=5.91。4・6マスは差が出ず)
   endMulti: false,   // 終盤に複数マスに当たる手も見る
   regenFast: true,   // 再生の前の手の評価を、前もって作った合成で速く行う(false は戻る量ごとに作り直す。遅い)
-  endMC: null,       // 終盤の際どい判断の試し打ち { K: 候補の数, R: 本数, z: 乗り換えの基準, lo, hi: 見込みの範囲, gap: 候補にする見込みの差, seed }。
-                     // 画面(sew-ui.js の SEW_AI_PARAMS)では { K:3, R:32, z:2, lo:0.02, hi:0.98, gap:0.1, seed:1 } を使う
+  endMC: null,       // 終盤の際どい判断の試し打ち { K: 候補の数, R: 本数, z: 乗り換えの基準, lo, hi: 見込みの範囲, gap: 候補にする見込みの差, seed, ms: 時間の上限(省略可) }。
+                     // 画面(sew-ui.js の SEW_AI_PARAMS)では { K:3, R:32, z:2, lo:0.02, hi:0.98, gap:0.1, seed:1, ms:5000 } を使う
                      // (2026-10-16、代表9レシピ・各300局: 種1000 72.5% → 74.3%(z=4.72)・種5000 72.9% → 74.7%(z=4.46))。
                      // 試験の道具では遅くなるので、ふだんは使わない
   endMinP: 0.002,    // 終盤の評価で、どの手でも★3の確率がこれ未満なら、ふだんの選び方に戻す
@@ -667,13 +667,22 @@ function chooseEndMC(g, cfg, ctx){
   if(cands.length < 2 || base.pStar3 > P.hi) return base;
   let h = (P.seed + g.turn * 7919 + g.focus * 104729) >>> 0;
   for(let i = 0; i < g.n; i++) h = (Math.imul(h ^ (g.cum[i] + 1000), 2654435761) + i) >>> 0;
+  // 本数ごとに全候補を打つ(同じ種どうしで比べるため)。P.ms(ミリ秒)を過ぎたら、そこまでの本数で比べる
+  // (遅い端末で待たせすぎないため。本数が減ると乗り換えの基準に届きにくくなり、ふだんの手に近づく)
+  const t0 = P.ms ? Date.now() : 0;
+  const res = cands.map(() => []);
+  let R = 0;
   ctx._roll = true;
-  const res = cands.map(c => { const r = []; for(let j = 0; j < P.R; j++) r.push(rollout(g, cfg, ctx, c, (h + j * 9973) >>> 0)); return r; });
+  for(let j = 0; j < P.R; j++){
+    for(let k = 0; k < cands.length; k++) res[k].push(rollout(g, cfg, ctx, cands[k], (h + j * 9973) >>> 0));
+    R = j + 1;
+    if(P.ms && Date.now() - t0 > P.ms) break;
+  }
   ctx._roll = false;
   let best = base, bestZ = -Infinity;
   for(let k = 1; k < cands.length; k++){
     let a = 0, b = 0;
-    for(let j = 0; j < P.R; j++){ if(res[k][j] && !res[0][j]) a++; if(res[0][j] && !res[k][j]) b++; }
+    for(let j = 0; j < R; j++){ if(res[k][j] && !res[0][j]) a++; if(res[0][j] && !res[k][j]) b++; }
     const z = a + b ? (a - b) / Math.sqrt(a + b) : 0;
     if(z >= P.z && z > bestZ){ bestZ = z; best = cands[k]; }
   }

@@ -36,8 +36,9 @@ html.pg-sew{ --bg:#efe7d9; --bg2:#f8f3e8; --panel:#fcf8ef; --line:#c3b394; --sun
 .scell.anchor{box-shadow:0 0 0 3px var(--sew), 0 4px 12px rgba(79,74,120,.35);}
 .scell.anchor::after{content:'ここ'; position:absolute; top:-9px; right:-6px; background:var(--sew); color:#fff;
   font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:10px;}
-/* 結果の入力待ちのマス */
-.scell.pend{outline:3px dashed var(--ember); outline-offset:2px;}
+/* 結果の入力待ちのマス(鍛冶の画面と同じく「入力」の札を付けて、枠を点滅させる) */
+.scell.pend{border-color:var(--ember) !important; animation:needpulse 1.3s ease-in-out infinite;}
+.scell .no .in{margin-left:5px; background:var(--ember); color:#fbf3e0; font-size:10px; padding:1px 6px; border-radius:8px; vertical-align:1px;}
 .scell .tags{position:absolute; bottom:4px; right:6px; display:flex; gap:3px;}
 .scell .tag{font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:8px;}
 .scell .tag.glow{background:#f7d24a; color:#5a4300;}
@@ -46,6 +47,7 @@ html.pg-sew{ --bg:#efe7d9; --bg2:#f8f3e8; --panel:#fcf8ef; --line:#c3b394; --sun
 /* 誤差の合計 */
 .ssum{text-align:center; font-size:13px; color:var(--dim); margin:10px 0 4px;}
 .ssum b{font-size:16px; color:var(--text); font-variant-numeric:tabular-nums;}
+.ssum .ssub{display:inline-block; margin-left:8px; font-size:11.5px;}
 .ssum .ok{color:var(--green);}
 .ssum .ng{color:var(--ember);}
 
