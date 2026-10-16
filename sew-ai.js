@@ -724,11 +724,18 @@ function chooseBulkMC(g, cfg, ctx, base, P){
 }
 // 候補(先頭がふだんの手)ごとに同じ種で P.R 本ずつ最後まで打ち切り、ふだんの手より「片方だけ★3」の本数の差で
 // z ≥ P.z はっきり良い手があれば、その手に乗り換える。種は局面と P.seed から作る(同じ局面では同じ手)
-function mcCompare(g, cfg, ctx, cands, P){
-  if(P.batch) return mcRace(g, cfg, ctx, cands, P);
-  const base = cands[0];
+// 画面で試し打ちを複数の Worker に分ける時(sew-ui.js)は、ctx._plan を立てて呼ぶと、試し打ちをせずに
+// 頼むこと(候補・種・設定)を ctx._planReq に残して、ふだんの手を返す。分けた結果から選ぶのは mcPick・mcAlive(下)で、
+// ここと同じ計算なので、本数が同じなら同じ手になる
+function mcSeed(g, P){
   let h = (P.seed + g.turn * 7919 + g.focus * 104729) >>> 0;
   for(let i = 0; i < g.n; i++) h = (Math.imul(h ^ (g.cum[i] + 1000), 2654435761) + i) >>> 0;
+  return h;
+}
+function mcCompare(g, cfg, ctx, cands, P){
+  if(ctx._plan){ ctx._planReq = { cands, P, h: mcSeed(g, P) }; return cands[0]; }
+  if(P.batch) return mcRace(g, cfg, ctx, cands, P);
+  const h = mcSeed(g, P);
   // 本数ごとに全候補を打つ(同じ種どうしで比べるため)。P.ms(ミリ秒)を過ぎたら、そこまでの本数で比べる
   // (遅い端末で待たせすぎないため。本数が減ると乗り換えの基準に届きにくくなり、ふだんの手に近づく)
   const t0 = P.ms ? Date.now() : 0;
@@ -736,58 +743,76 @@ function mcCompare(g, cfg, ctx, cands, P){
   let R = 0;
   ctx._roll = true;
   for(let j = 0; j < P.R; j++){
-    for(let k = 0; k < cands.length; k++) res[k].push(rollout(g, cfg, ctx, cands[k], (h + j * 9973) >>> 0));
+    for(let k = 0; k < cands.length; k++) res[k].push(rollout(g, cfg, ctx, cands[k], mcRunSeed(h, j)));
     R = j + 1;
     if(P.ms && Date.now() - t0 > P.ms) break;
   }
   ctx._roll = false;
-  let best = base, bestZ = -Infinity;
-  for(let k = 1; k < cands.length; k++){
-    let a = 0, b = 0;
-    for(let j = 0; j < R; j++){ if(res[k][j] && !res[0][j]) a++; if(res[0][j] && !res[k][j]) b++; }
+  return mcPick(cands, res, R, P, null);
+}
+function mcRunSeed(h, j){ return (h + j * 9973) >>> 0; }
+// ふだんの手(候補 0)との「片方だけ★3」の数
+function mcDiff(res, k, n){ let a = 0, b = 0; for(let j = 0; j < n; j++){ if(res[k][j] && !res[0][j]) a++; if(res[0][j] && !res[k][j]) b++; } return [a, b]; }
+// R 本までの結果から選ぶ。alive: 残っている候補の番号(null なら全部)
+function mcPick(cands, res, R, P, alive){
+  let best = cands[0], bestZ = -Infinity;
+  const ks = alive || cands.map((c, k) => k).slice(1);
+  for(const k of ks){
+    const [a, b] = mcDiff(res, k, R);
     const z = a + b ? (a - b) / Math.sqrt(a + b) : 0;
     if(z >= P.z && z > bestZ){ bestZ = z; best = cands[k]; }
   }
   return best;
 }
+// 打ち切りあり(mcRace)で、n 本まで打った時に残す候補
+function mcAlive(alive, res, n, P){
+  const rest = P.R - n;
+  return alive.filter(k => {
+    const [a, b] = mcDiff(res, k, n);
+    const zNow = a + b ? (a - b) / Math.sqrt(a + b) : 0;
+    const zMax = (a + rest + b) ? (a + rest - b) / Math.sqrt(a + rest + b) : 0;
+    return zMax >= P.z && zNow > -(P.drop || 1.5);
+  });
+}
 // mcCompare の打ち切りあり版(P.batch 本ずつ回す)。そのつど、ふだんの手との「片方だけ★3」を数え、
 // 残りの本数を全部勝っても z ≥ P.z に届かない候補と、z ≤ −P.drop のはっきり悪い候補は、そこで打ち切る。
 // 乗り換えは、打ち切られずに残った候補を、最後まで回した本数で z ≥ P.z の時だけ(基準は打ち切りなしと同じ)
 function mcRace(g, cfg, ctx, cands, P){
-  const base = cands[0];
-  let h = (P.seed + g.turn * 7919 + g.focus * 104729) >>> 0;
-  for(let i = 0; i < g.n; i++) h = (Math.imul(h ^ (g.cum[i] + 1000), 2654435761) + i) >>> 0;
+  const base = cands[0], h = mcSeed(g, P);
   const t0 = P.ms ? Date.now() : 0;
   const res = cands.map(() => []);
   let alive = cands.map((c, k) => k).slice(1);
-  const dz = (k, n) => { let a = 0, b = 0; for(let j = 0; j < n; j++){ if(res[k][j] && !res[0][j]) a++; if(res[0][j] && !res[k][j]) b++; } return [a, b]; };
   let n = 0;
   ctx._roll = true;
   while(n < P.R && alive.length){
     const to = Math.min(P.R, n + P.batch);
     for(let j = n; j < to; j++){
-      const sd = (h + j * 9973) >>> 0;
+      const sd = mcRunSeed(h, j);
       res[0].push(rollout(g, cfg, ctx, base, sd));
-      for(const k of alive) res[k].push(rollout(g, cfg, ctx, cands[k], sd));
+      for(const k of alive) res[k][j] = rollout(g, cfg, ctx, cands[k], sd);
     }
     n = to;
-    const rest = P.R - n;
-    alive = alive.filter(k => {
-      const [a, b] = dz(k, n);
-      const zNow = a + b ? (a - b) / Math.sqrt(a + b) : 0;
-      const zMax = (a + rest + b) ? (a + rest - b) / Math.sqrt(a + rest + b) : 0;
-      return zMax >= P.z && zNow > -(P.drop || 1.5);
-    });
+    alive = mcAlive(alive, res, n, P);
     if(P.ms && Date.now() - t0 > P.ms) break;
   }
   ctx._roll = false;
-  let best = base, bestZ = -Infinity;
-  for(const k of alive){
-    const [a, b] = dz(k, n);
-    const z = a + b ? (a - b) / Math.sqrt(a + b) : 0;
-    if(z >= P.z && z > bestZ){ bestZ = z; best = cands[k]; }
-  }
-  return best;
+  return mcPick(cands, res, n, P, alive);
+}
+// 試し打ちを分ける時の1つの仕事: 候補 ks を、本数の番号 js で打ち切った結果(★3 なら 1)。out[ks の順][js の順]
+function mcRuns(g, cfg, ctx, cands, h, ks, js){
+  ctx._roll = true;
+  const out = ks.map(k => js.map(j => rollout(g, cfg, ctx, cands[k], mcRunSeed(h, j))));
+  ctx._roll = false;
+  return out;
+}
+// 試し打ちを分ける時の最初の仕事: 推奨手を、試し打ちの手前まで計算する。
+// 戻り値 { move, req }。req があれば、req.cands を試し打ちで比べて選ぶ(無ければ move がそのまま推奨手)
+function plan(g, cfg, ctx){
+  ctx._plan = true; ctx._planReq = null;
+  let move;
+  try{ move = choose(g, cfg, ctx); } finally { ctx._plan = false; }
+  const req = ctx._planReq; ctx._planReq = null;
+  return { move, req };
 }
 function rollout(g, cfg, ctx, first, seed, opts){
   const rng = SEW.makeRng(seed);
@@ -838,7 +863,8 @@ function playGame(recipe, cfg, seed, ctx, opts){
   return { star: j.star, total: j.total, focus: g.focus, turns: g.turn };
 }
 
-const SEW_AI = { DEF, PARAM_SETS, PARAM_OF, prepare, choose, chooseMC, bestAction, evalAction, playGame, finishTable, rollout, candidates };
+const SEW_AI = { DEF, PARAM_SETS, PARAM_OF, prepare, choose, chooseMC, bestAction, evalAction, playGame, finishTable, rollout, candidates,
+  plan, mcRuns, mcPick, mcAlive };
 root.SEW_AI = SEW_AI;
 if(typeof module !== 'undefined' && module.exports) module.exports = SEW_AI;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
