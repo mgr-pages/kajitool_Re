@@ -6,13 +6,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- 版は index.html が元(tools/stamp.py が書き写す) -->
-<title>裁縫 - 職人アドバイザーV4.00</title>
+<title>裁縫 - 職人アドバイザーV4.01</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=c24d6a6d">
-<link rel="stylesheet" href="sew.css?v=c24d6a6d">
+<link rel="stylesheet" href="style.css?v=41a44134">
+<link rel="stylesheet" href="sew.css?v=41a44134">
 </head>
 <body>
 
@@ -27,9 +27,6 @@
     <button class="hdr-reset" onclick="confirmReset()">最初から</button>
   </div>
   <div class="hdr-row">
-    <div class="stat">
-      <span class="lbl">ターン</span><span class="val" id="v-turn">1</span>
-    </div>
     <div class="stat tap" onclick="openNum('focus')">
       <span class="lbl">集中力</span><span class="val" id="v-focus">0</span>
       <span class="edit" aria-hidden="true">✎</span>
@@ -37,6 +34,10 @@
     <div class="stat tap pw" onclick="openPower()">
       <span class="lbl">ぬいパワー</span><span class="val" id="v-power">—</span>
       <span class="edit" aria-hidden="true">✎</span>
+    </div>
+    <!-- 必殺(無我の境地)。押すと状態(なし・チャージ・効果中)を選ぶ画面を開く(鍛冶の画面と同じ作り) -->
+    <div class="stat tap hs" id="hsBox" onclick="openHS()">
+      <span class="lbl">必殺</span><span class="val" id="v-hs">なし</span>
     </div>
   </div>
   <div class="badges" id="badges"></div>
@@ -46,7 +47,7 @@
 <div class="board">
   <div class="sboard" id="sboard"></div>
   <div class="ssum" id="ssum"></div>
-  <!-- ぬいパワーの順番。今の位置に印。押すと位置を直せる(ゲームとずれた時) -->
+  <!-- 何ターン目かと、ぬいパワーの順番。今の位置に印。押すと位置を直せる(ゲームとずれた時) -->
   <div class="cyc" id="cycle"></div>
 </div>
 
@@ -64,7 +65,7 @@
 
 <details class="acc">
   <summary>特技一覧(このターン)</summary>
-  <div class="body"><table class="sk" id="skTable"></table><div class="sk-note" id="skNote"></div></div>
+  <div class="body"><table class="sk" id="skTable"></table></div>
 </details>
 
 <details class="acc" id="setAcc">
@@ -88,7 +89,6 @@
       <select id="s-kotsu">
         <option value="1" selected>あり</option><option value="0">なし</option>
       </select></div>
-    <div class="set-note">設定を変えると、今の対局の続きのまま推奨手を計算し直します。</div>
     <div class="ver" id="v-ver"></div>
   </div>
 </details>
@@ -125,6 +125,19 @@
   </div>
 </div>
 
+<!-- 必殺の状態(鍛冶の画面と同じ作り)。無我の境地は使った後ずっと効くので、使用済みは無い -->
+<div class="modal" id="hsModal" onclick="if(event.target===this)closeHS()">
+  <div class="pad">
+    <button class="pad-close" onclick="closeHS()">閉じる</button>
+    <div class="pad-hd">必殺の状態を選んでください</div>
+    <div class="oc-row">
+      <button class="cand hs-opt" data-hs="none" onclick="setHS('none')">なし<small>チャージが来ていない</small></button>
+      <button class="cand hs-opt" data-hs="charged" onclick="setHS('charged')">チャージ<small>来たが、まだ使っていない</small></button>
+      <button class="cand hs-opt" data-hs="active" onclick="setHS('active')">効果中<small>使った。この後ずっと会心率2倍</small></button>
+    </div>
+  </div>
+</div>
+
 <!-- 別の手(推奨と違う特技を使った時) -->
 <div class="modal" id="otherModal" onclick="if(event.target===this)closeOther()">
   <div class="pad pick">
@@ -154,10 +167,10 @@
   </div>
 </div>
 
-<script src="sew-recipes.js?v=c24d6a6d"></script>
-<script src="sew-engine.js?v=c24d6a6d"></script>
-<script src="sew-ai.js?v=c24d6a6d"></script>
-<script src="gamelog.js?v=c24d6a6d"></script>
-<script src="sew-ui.js?v=c24d6a6d"></script>
+<script src="sew-recipes.js?v=41a44134"></script>
+<script src="sew-engine.js?v=41a44134"></script>
+<script src="sew-ai.js?v=41a44134"></script>
+<script src="gamelog.js?v=41a44134"></script>
+<script src="sew-ui.js?v=41a44134"></script>
 </body>
 </html>

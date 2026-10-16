@@ -58,7 +58,7 @@ const GameLog = (function(){
     if(cur) return cur;
     cur = { id: rid(), device: device(), started: new Date().toISOString(),
             version: (document.getElementById('v-ver') || {}).textContent || '',
-            preset: G.preset, trait: G.trait, level: G.level, hammer: G.hammerId, star: G.star,
+            preset: G.preset, trait: G.trait, level: G.level, hammer: G.hammerId, star: G.star, kotsu: G.kotsu !== false,
             threshold: SUCCESS_THRESHOLD,
             env: (typeof navigator !== 'undefined') ? glogEnv(navigator.userAgent, navigator.maxTouchPoints) : null,
             zones: G.masses.map((m, i) => m.off ? null : [i + 1, m.zoneLow, m.zoneHigh]).filter(Boolean),

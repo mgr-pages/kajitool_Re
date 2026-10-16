@@ -151,6 +151,8 @@ function enterTurn(){
   if(trait === 'light') tin.needGlow = g.base.some((b, i) => b - g.cum[i] >= SEW.P.yellow + 1);
   S.turnIn = tin; S.phase = 'turn'; S.rec = null; S.move = null; S.pend = []; S.obs = {};
   maybeStartTurn();
+  // ぬいパワーが分からない(「？」・シフトの後)時は、選ぶ画面を開く(マスの値の入力と同じく、自分で開く)
+  if(S.phase === 'turn' && !S.turnIn.power) openPower();
 }
 function turnReady(){
   const t = S.turnIn;
@@ -257,7 +259,7 @@ function openCell(i){
   if(!S.g) return;
   NUM = { kind: 'cell', i, buf: '', neg: false };
   const groups = candidatesFor(i);
-  document.getElementById('numTitle').textContent = `${cellName(i)} の今の残り(ゲームの数字)`;
+  document.getElementById('numTitle').textContent = `${cellName(i)} の残り`;
   const box = document.getElementById('numCand');
   if(groups.length){
     box.innerHTML = groups.map(gr => `<div class="cand-grp"><span class="cand-h ${gr.cls}">${gr.label}</span><div class="cand-row">`
@@ -339,9 +341,11 @@ function openPower(){
   if(!S.g) return;
   const t = S.turnIn, cur = S.phase === 'turn' ? (t && t.power) : S.g.power;
   const row = document.getElementById('powRow');
-  const opts = [['weak', ''], ['normal', ''], ['strong', ''], ['strongest', ''], ['critx2', 'シフトで出た', true], ['critx2', '「？」で出た', false]];
+  // ターンの始めは、会心×２がシフトで出たかは局面で決まるので1つにする。手直しの時は分けて選ぶ
+  const opts = [['weak', ''], ['normal', ''], ['strong', ''], ['strongest', '']].concat(S.phase === 'turn'
+    ? [['critx2', '']] : [['critx2', 'シフトで出た', true], ['critx2', '「？」で出た', false]]);
   row.innerHTML = opts.map(([p, sub, sc]) => `<button class="cand${p === cur && (p !== 'critx2' || (sc === undefined || sc === (t ? t.shiftCrit : S.g.shiftCrit))) ? ' now' : ''}" onclick="setPower('${p}',${sc === undefined ? 'null' : sc})">${SEW.POWER_JA[p]}${sub ? `<small>${sub}</small>` : ''}</button>`).join('');
-  document.getElementById('powTitle').textContent = S.phase === 'turn' ? `${S.g.turn + 1}ターン目のぬいパワーを選んでください` : 'このターンのぬいパワー(ゲームとずれた時に直す)';
+  document.getElementById('powTitle').textContent = S.phase === 'turn' ? `${S.g.turn + 1}ターン目のぬいパワー` : 'このターンのぬいパワー';
   document.getElementById('powModal').classList.add('show');
 }
 function closePower(){ document.getElementById('powModal').classList.remove('show'); }
@@ -353,14 +357,14 @@ function setPower(p, shiftCrit){
 }
 function setGlow(i){
   if(!S.turnIn) return;
-  S.turnIn.glow = i; S.msg = null; maybeStartTurn();
+  S.turnIn.glow = i; maybeStartTurn();
 }
 function openRegen(i){
   NUM = { kind: 'regen', i, buf: '', neg: false };
   const g = S.g, r = rem(i), vals = [...new Set(SEW.P.regen.map(a => r + Math.min(a, g.cum[i])))].sort((a, b) => b - a);
-  document.getElementById('numTitle').textContent = `再生した ${cellName(i)} の今の残り`;
+  document.getElementById('numTitle').textContent = `${cellName(i)} の残り(再生の後)`;
   const box = document.getElementById('numCand');
-  box.innerHTML = `<div class="cand-grp"><span class="cand-h n">再生の後(12〜16 戻る)</span><div class="cand-row">`
+  box.innerHTML = `<div class="cand-grp"><span class="cand-h n">再生の後</span><div class="cand-row">`
     + vals.map(v => `<button class="cand" onclick="setRegen(${i},${v})">${v}</button>`).join('') + '</div></div>'
     + '<button class="cand-more" onclick="showNumKeys()">一覧に無い値を自分で入力する</button>';
   box.style.display = ''; document.getElementById('numKeys').style.display = 'none';
@@ -408,7 +412,7 @@ function pickOtherCell(r, c){ const id = OTHER; closeOther(); useMove({ skill: i
 
 /* ===== 取り消し ===== */
 function pushUndo(){
-  S.undo.push({ g: SEW.cloneGame(S.g), phase: S.phase, turnIn: S.turnIn, rec: S.rec });
+  S.undo.push({ g: SEW.cloneGame(S.g), phase: S.phase, turnIn: S.turnIn ? Object.assign({}, S.turnIn) : null, rec: S.rec });
   if(S.undo.length > 30) S.undo.shift();
 }
 function undoLast(silent){
@@ -522,40 +526,43 @@ function renderHeader(){
   const g = S.g, r = g ? g.recipe : null;
   document.getElementById('v-grp').textContent = r ? `${CAT_JA[r.category]}・${CLOTH_JA[r.cloth]}` : 'レシピ';
   document.getElementById('v-name').textContent = r ? r.name : '選んでください';
-  document.getElementById('v-turn').textContent = g ? g.turn + 1 : '—';
   document.getElementById('v-focus').textContent = g ? g.focus : '—';
   const pw = !g ? '—' : S.phase === 'turn' ? (S.turnIn && S.turnIn.power ? SEW.POWER_JA[S.turnIn.power] : '？') : SEW.POWER_JA[g.power];
   document.getElementById('v-power').textContent = pw;
   document.getElementById('v-gear').textContent = `${SEW.NEEDLES[S.needle].name}の針★${S.star} / Lv${S.level}${S.kotsu ? '' : ' / コツなし'}`;
+  // 必殺: なし → (チャージが来たら選ぶ)チャージ → (使う)効果中。職人Lvが足りない時は欄を出さない
+  const hsBox = document.getElementById('hsBox');
+  hsBox.style.display = S.level >= SEW.SKILL.muga.lv ? '' : 'none';
+  document.getElementById('v-hs').textContent = g ? HS_LABEL[hsKey()] : '—';
+  hsBox.classList.toggle('on', !!g && (g.hsCharged || g.muga));
+  // 札は今の状態だけを出す(精神統一の固定・虹布の特性のターン)。先の予告や、入力の画面で分かることは出さない
   const bd = [];
   if(g){
     const t = g.turn + 1;
-    if(g.lockRem > 0 && g.lockedPower) bd.push(`<span class="badge boost">精神統一 ${SEW.POWER_JA[g.lockedPower]}で固定(あと${Math.max(0, g.lockRem - (S.phase === 'turn' ? 0 : 1))}ターン)</span>`);
-    if(g.cloth !== 'normal'){
-      const next = nextTrait(t);
-      let s = CLOTH_JA[g.cloth];
-      if(SEW.isTraitTurn(t)){
-        if(g.cloth === 'rainbow') s += SEW.rainbowMode(t) === 'half' ? ': このターン消費が半分' : ': このターン会心ターン(消費1.5倍)';
-        else if(g.cloth === 'regen') s += ': このターンの始めに再生';
-        else s += ': このターン光る';
-      } else s += `: 次は${next}ターン目` + (g.cloth === 'rainbow' ? (SEW.rainbowMode(next) === 'half' ? '(消費半分)' : '(会心ターン)') : '');
-      bd.push(`<span class="badge half">${s}</span>`);
-    }
-    if(S.level >= SEW.SKILL.muga.lv){
-      // 無我の境地は使った後ずっと効く(muga と hsUsed が両方立つ)ので、効果中を先に見る
-      const hs = g.muga ? '効果中(会心率2倍)' : g.hsUsed ? '使用済み' : g.hsCharged ? 'チャージ' : 'なし';
-      bd.push(`<button class="badge ${g.hsCharged || g.muga ? 'boost' : 'off'} hs-chip" onclick="toggleHS()">必殺: ${hs}</button>`);
-    }
+    if(g.lockRem > 0 && g.lockedPower) bd.push(`<span class="badge boost">${SEW.POWER_JA[g.lockedPower]}で固定 あと${Math.max(0, g.lockRem - (S.phase === 'turn' ? 0 : 1))}ターン</span>`);
+    if(g.cloth === 'rainbow' && SEW.isTraitTurn(t)) bd.push(`<span class="badge half">${SEW.rainbowMode(t) === 'half' ? '消費半分のターン' : '会心ターン(消費1.5倍)'}</span>`);
   }
-  document.getElementById('badges').innerHTML = bd.join('');
+  const bx = document.getElementById('badges');
+  bx.innerHTML = bd.join('');
+  bx.style.display = bd.length ? '' : 'none';
 }
-function nextTrait(t){ let k = t + 1; while(!SEW.isTraitTurn(k)) k++; return k; }
-function toggleHS(){
-  const g = S.g; if(!g) return;
-  // なし → チャージ → なし(使った時は「別の手」で無我の境地を選ぶ)
-  if(g.hsUsed) return;
-  g.hsCharged = !g.hsCharged;
-  SewLog.ev('hs', { charged: g.hsCharged });
+// 必殺の状態。欄を押すと選ぶ画面を開き、どの状態にも合わせられる(鍛冶の画面と同じ)。
+// 無我の境地は使った後ずっと効く(muga と hsUsed が両方立つ)ので、使用済みは無い
+const HS_LABEL = { none: 'なし', charged: 'チャージ', active: '効果中' };
+function hsKey(){ const g = S.g; return !g ? 'none' : g.muga ? 'active' : g.hsCharged ? 'charged' : 'none'; }
+function openHS(){
+  if(!S.g) return;
+  const k = hsKey();
+  document.querySelectorAll('#hsModal .hs-opt').forEach(b => b.classList.toggle('cur', b.dataset.hs === k));
+  document.getElementById('hsModal').classList.add('show');
+}
+function closeHS(){ document.getElementById('hsModal').classList.remove('show'); }
+function setHS(k){
+  closeHS();
+  const g = S.g;
+  if(!g || !HS_LABEL[k] || k === hsKey()) return;
+  g.hsCharged = k === 'charged'; g.muga = k === 'active'; g.hsUsed = k === 'active';
+  SewLog.ev('hs', { state: k });
   afterEdit();
 }
 function renderBoard(){
@@ -573,28 +580,30 @@ function renderBoard(){
       anchor = anchorCell(g, sk, m.anchor);
     }
   }
+  // ターンの始めに盤のマスを選ぶ時(光ったマス・再生したマス)は、選べるマスだけを押せるようにする
+  const pick = pickable();
+  const midareDoneSet = S.phase === 'input' && S.midare ? new Set(Object.keys(S.obs).map(Number)) : null;
   let h = '';
   for(let r = 1; r <= g.rows; r++) for(let c = 1; c <= g.cols; c++){
     const i = g.cellAt[r * 8 + c];
     if(i === undefined){ h += '<div class="scell void"></div>'; continue; }
     const v = S.phase === 'input' && S.obs[i] !== undefined ? S.obs[i] : rem(i);
     const cls = ['scell', Math.abs(v) <= SEW.P.yellow ? 'yellow' : v < 0 ? 'red' : '',
-                 tg.has(i) ? 'tg' : '', i === anchor ? 'anchor' : '', pend.has(i) ? 'pend' : ''].filter(Boolean).join(' ');
+                 tg.has(i) ? 'tg' : '', i === anchor ? 'anchor' : '', pend.has(i) ? 'pend' : '',
+                 pick ? (pick.has(i) ? 'pick' : 'dis') : '', midareDoneSet && midareDoneSet.has(i) ? 'done' : ''].filter(Boolean).join(' ');
     const tags = (g.glow === i && S.phase !== 'turn' ? '<span class="tag glow">光</span>' : '') + (g.shitsuke[i] ? '<span class="tag shi">しつけ</span>' : '');
-    h += `<button class="${cls}" onclick="tapCell(${i})"><span class="no">${i + 1}${pend.has(i) ? '<span class="in">入力</span>' : ''}</span><span class="rem">${v}</span>`
-       + `<span class="base">基準値 ${g.base[i]}</span>${tags ? `<span class="tags">${tags}</span>` : ''}</button>`;
+    h += `<button class="${cls}" onclick="tapCell(${i})"${pick && !pick.has(i) ? ' disabled' : ''}><span class="no">${i + 1}${pend.has(i) ? '<span class="in">入力</span>' : ''}</span><span class="rem">${v}</span>`
+       + `${tags ? `<span class="tags">${tags}</span>` : ''}</button>`;
   }
   el.innerHTML = h;
   const j = SEW.judge(g), T = ((g.oldLimit && SEW.EVAL_OLD[g.n]) || SEW.EVAL[g.n]).star3;
   const yel = g.base.filter((b, i) => Math.abs(b - g.cum[i]) <= SEW.P.yellow).length;
-  // ★3 は全マスが黄色の時だけ。それまでは黄色のマスの数、全部黄色になったら誤差の合計を出す
-  document.getElementById('ssum').innerHTML = yel < g.n
-    ? `黄色のマス <b>${yel} / ${g.n}</b><span class="ssub">★3 は全マス黄色で誤差の合計 ${T} 以下</span>`
+  // 誤差の合計は、全マスが黄色になった時だけ出す(★3 は全マス黄色の時だけなので、それまでは出しても使わない)
+  document.getElementById('ssum').innerHTML = yel < g.n ? ''
     : `誤差の合計 <b class="${j.total <= T ? 'ok' : 'ng'}">${j.total}</b><span class="ssub">★3 は ${T} 以下</span>`;
-  // ぬいパワーの順番
-  const lockNote = g.lockRem > 0 && g.lockedPower ? `<span class="lock">固定中は止まる</span>` : '';
-  document.getElementById('cycle').innerHTML = '<div class="cyc-h">ぬいパワーの順番(印が今の位置。ずれていたら押して直す)</div>'
-    + g.cycle.map((p, k) => `<button class="${k === g.cycleIdx ? 'now' : ''}${p === 'unknown' ? ' q' : ''}" onclick="setCycleIdx(${k})">${POW_SHORT[p]}</button>`).join('') + lockNote;
+  // 何ターン目かと、ぬいパワーの順番(印が今の位置。押すと直せる)
+  document.getElementById('cycle').innerHTML = `<span class="cyc-t">${g.turn + 1}ターン目</span>`
+    + g.cycle.map((p, k) => `<button class="${k === g.cycleIdx ? 'now' : ''}${p === 'unknown' ? ' q' : ''}" onclick="setCycleIdx(${k})">${POW_SHORT[p]}</button>`).join('');
 }
 // 盤の上で「ここ」と示すマス: 推奨手の起点が欠けた位置なら、同じマスに当たる実在の起点を探す
 function anchorCell(g, sk, a){
@@ -608,23 +617,31 @@ function anchorCell(g, sk, a){
   }
   return -1;
 }
+// 順番の位置を直す。確かめの画面は出さず、押し間違えは「取り消す」で戻す
 function setCycleIdx(k){
-  const g = S.g; if(!g || k === g.cycleIdx) return;
-  if(!confirm(`ぬいパワーの順番の今の位置を、${k + 1}番目(${SEW.POWER_JA[g.cycle[k]]})に直しますか`)) return;
+  const g = S.g; if(!g || k === g.cycleIdx || S.phase === 'input') return;
+  pushUndo();
   g.cycleIdx = k;
   SewLog.ev('fixCycle', { idx: k });
   if(S.phase === 'turn') enterTurn(); else { renderAll(); save(); }
 }
+// ターンの始めに盤から選ぶマス(光ったマス・再生したマス)。選ぶ場面でなければ null
+function pickable(){
+  const g = S.g, t = S.turnIn;
+  if(!g || S.phase !== 'turn' || !t) return null;
+  if(t.needGlow && t.glow === null) return new Set(g.base.map((b, i) => i).filter(i => rem(i) >= SEW.P.yellow + 1));
+  if(t.needRegen && !t.regen) return new Set(SEW.regenCandidates(g));
+  return null;
+}
 function tapCell(i){
   if(!S.g) return;
   if(S.phase === 'turn' && S.turnIn){
-    if(S.turnIn.needGlow && S.turnIn.glow === null){
-      // 光るのは残りが黄色の幅より大きいマスだけ。ほかのマスを押した時は、押せない理由を出す
-      if(rem(i) >= SEW.P.yellow + 1) setGlow(i);
-      else { S.msg = `${cellName(i)} は光りません(光るのは残りが ${SEW.P.yellow + 1} 以上のマス)`; renderAll(); }
+    const pick = pickable();
+    if(pick){
+      if(!pick.has(i)) return;                       // 選べないマス(盤では押せない見た目にしてある)
+      if(S.turnIn.needGlow) setGlow(i); else openRegen(i);
       return;
     }
-    if(S.turnIn.needRegen && !S.turnIn.regen){ openRegen(i); return; }
   }
   if(S.phase === 'input' && S.midare){ openCell(i); return; }
   if(S.phase === 'input' && S.pend.some(p => p.i === i)){ openCell(i); return; }
@@ -644,11 +661,8 @@ function renderRec(){
   const el = document.getElementById('rec');
   const g = S.g;
   if(!g){ el.innerHTML = '<div class="rec-empty">レシピを選んでください</div>'; return; }
-  if(S.phase === 'turn'){ el.innerHTML = '<div class="rec-empty">ターンの始めに起きたことを入れてください</div>'; return; }
-  if(S.phase === 'input'){
-    el.innerHTML = `<div class="rec-main"><div class="rec-skill">${moveText(S.move)}</div><div class="rec-sub">使った手の結果を入れてください</div></div>`;
-    return;
-  }
+  if(S.phase === 'turn'){ el.innerHTML = ''; return; }        // ターンの始めの入力は、下の欄と主ボタンで分かる
+  if(S.phase === 'input'){ el.innerHTML = `<div class="rec-main"><div class="rec-skill">${moveText(S.move)}</div></div>`; return; }
   if(!S.rec){ el.innerHTML = '<div class="rec-empty">計算中…</div>'; return; }
   const m = S.rec, sk = m.finish ? null : SEW.SKILL[m.skill];
   const cost = sk ? SEW.costOf(g, sk) : 0;
@@ -663,25 +677,16 @@ function renderInput(){
   const parts = [];
   if(S.phase === 'turn' && S.turnIn){
     const t = S.turnIn;
-    if(!t.power) parts.push(`<div class="inp"><div class="d">${g.turn + 1}ターン目のぬいパワーは?(${g.forced ? 'シフトの後' : '「？」'})</div><div class="row">`
-      + ['weak', 'normal', 'strong', 'strongest'].map(p => `<button onclick="setPower('${p}',null)">${SEW.POWER_JA[p]}</button>`).join('')
-      + `<button onclick="setPower('critx2',null)">会心×２</button></div></div>`);
     if(t.needRegen && !t.regen){
-      const cand = SEW.regenCandidates(g);
-      parts.push(`<div class="inp"><div class="d">再生布: 戻ったマスを押して、今の残りを入れてください</div><div class="row">`
-        + cand.map(i => `<button class="hl" onclick="openRegen(${i})">${cellName(i)}</button>`).join('') + `<button onclick="noRegen()">戻らなかった</button></div></div>`);
+      parts.push(`<div class="inp"><div class="row"><button onclick="noRegen()">戻らなかった</button></div></div>`);
     }
     if(t.needGlow && t.glow === null){
-      parts.push(`<div class="inp"><div class="d">光布: 光ったマスを押してください</div><div class="row"><button onclick="setGlow(-1)">光らなかった</button></div></div>`);
+      parts.push(`<div class="inp"><div class="row"><button onclick="setGlow(-1)">光らなかった</button></div></div>`);
     }
-  }
-  if(S.phase === 'input' && S.midare){
-    const n = Object.keys(S.obs).length;
-    parts.push(`<div class="inp"><div class="d">みだれぬい: 値が変わったマスを押して、今の残りを入れてください(${n}マス入力済み)。全部入れたら「入力おわり」</div></div>`);
   }
   if(S.phase !== 'input' && g.turn === 0 && !SewLog.active()){
     const op = SEW.NEEDLES[S.needle].opening;
-    if(op && op.type === 'focus' && !S.openingDone) parts.push(`<div class="inp"><div class="d">${SEW.NEEDLES[S.needle].name}の針: 開始時に集中力 +${op.amount} が出たら押してください</div><div class="row"><button onclick="openingFocus()">集中力 +${op.amount} が出た</button></div></div>`);
+    if(op && op.type === 'focus' && !S.openingDone) parts.push(`<div class="inp"><div class="row"><button onclick="openingFocus()">開始時に集中力 +${op.amount} が出た</button></div></div>`);
   }
   if(S.level >= SEW.P.recover.lv && !g.recoverUsed && g.focus <= SEW.P.recover.below && S.phase !== 'input'){
     parts.push(`<div class="inp"><div class="row"><button onclick="recoverFocus()">集中力が回復した(+${SEW.P.recover.amount})</button></div></div>`);
@@ -704,7 +709,6 @@ function renderSkills(){
     return `<tr><td>${sk.name}</td><td>${c}</td><td>${v}</td></tr>`;
   });
   el.innerHTML = `<tr><th>特技</th><th>消費</th><th>値(${SEW.POWER_JA[p]})</th></tr>` + rows.join('');
-  document.getElementById('skNote').textContent = '値は会心なし・ふつうのマスの時。会心は2倍(残りでぴったり止まる)。';
 }
 // 画面下の主ボタン: 次にすべきことを1つだけ示す
 function syncPrimary(){
@@ -718,11 +722,11 @@ function syncPrimary(){
   else if(S.phase === 'turn'){
     const t = S.turnIn;
     if(!t.power){ label = 'ぬいパワーを選ぶ'; run = openPower; }
-    else if(t.needRegen && !t.regen){ label = '再生したマスを入力'; sub = '盤のマスを押す'; }
-    else if(t.needGlow && t.glow === null){ label = '光ったマスを押してください'; }
+    else if(t.needRegen && !t.regen){ label = '再生したマスをタップしてください'; }
+    else if(t.needGlow && t.glow === null){ label = '光ったマスをタップしてください'; }
     else { label = '推奨手を計算'; run = maybeStartTurn; }
   } else if(S.phase === 'input'){
-    if(S.midare){ label = '入力おわり'; sub = 'みだれぬい'; run = midareDone; }
+    if(S.midare){ label = '入力おわり'; run = midareDone; }
     else if(S.pend.length){ label = '結果を入力'; sub = `${cellName(S.pend[0].i)}` + (S.pend.length > 1 ? `・残り${S.pend.length}マス` : ''); run = () => openCell(S.pend[0].i); }
   } else if(S.phase === 'move'){
     if(S.rec){ label = S.rec.finish ? 'しあげた' : '使った'; sub = S.rec.finish ? '結果を選ぶ' : ''; run = () => useMove(S.rec); }

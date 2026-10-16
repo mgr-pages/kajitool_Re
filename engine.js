@@ -10,6 +10,7 @@ const G = {
   focus: 253,
   masses: [],
   level: 80, hammerId:'light', star:3, trait:'shuchu',
+  kotsu: true,     // レシピのコツ(つかんでいれば会心率 +1.0%。computeCritRate)。設定で切り替える
   rec: null, plan: [], barSkill:'tataku', preset:'kagayaki',
   // 実行済み反映で「数値の手入力待ち」になっているマス番号
   pending: [], undoSnap: null, showRange: true, hist: [], posts: null, obs: null,
@@ -728,8 +729,8 @@ function computeCritRate(skill, level, hammerId, star, trait, temp, isLit){
   const passive = getPassiveCritPercent(level);
   const hammer = HAMMERS[hammerId];
   // 道具会心率 = 職人スキル(パッシブ) + コツをつかんでいる + ハンマーのできのよさ
-  // 「コツをつかんでいる」は同じ品を作り続けると常時付く +1.0%。
-  const KOTSU = 1.0;
+  // 「コツをつかんでいる」は同じ品を作り続けると常時付く +1.0%。設定の「レシピのコツ」がなしなら付けない(G.kotsu)
+  const KOTSU = G.kotsu === false ? 0 : 1.0;
   const base = passive + KOTSU + (hammer ? hammer.critByStar[star] : 0); // %
   const st = traitTempState(temp);
   // 開始直後は地金特性が発動しないため、会心率ボーナスも乗らない
@@ -971,7 +972,7 @@ const LDP_CACHE = new Map();
 let IN_ROLLOUT = 0;                      // 先読みの試行の中か(mcRollout・tracedRollout が数える)
 function ldpTable(L, H, a, cfg){
   const mod = cfg.trait === 'modori' ? modoriRange() : null;
-  const key = [L, H, a, cfg.level, cfg.hammerId, cfg.star, cfg.trait].join('|') + (mod ? '|' + mod.min + '|' + mod.max : '');
+  const key = [L, H, a, cfg.level, cfg.hammerId, cfg.star, cfg.trait, G.kotsu === false ? 0 : 1].join('|') + (mod ? '|' + mod.min + '|' + mod.max : '');
   let tb = LDP_CACHE.get(key);
   if(tb){ LDP_CACHE.delete(key); LDP_CACHE.set(key, tb); return tb; }
   const w = H - L + 1, big = a >= MAX_ERR;          // 誤差は4で頭打ちなので、許される誤差が4以上ならゾーン内はどこでも良い
@@ -1415,7 +1416,7 @@ function twoMassMove(ms, f, t, P, cfg){
 const TRAP_CACHE = new Map();
 function trapPlan(ms, idx, cfg, P){
   const GM = P.trapG || 160, kappa = P.trapK, eps = P.trapL * (1 - kappa), rho = P.trapR || 0;
-  const key = [idx.map(i => ms[i].zoneLow + '-' + ms[i].zoneHigh).join('/'), cfg.trait, cfg.level, cfg.hammerId, cfg.star, GM, kappa, eps, rho].join('|');
+  const key = [idx.map(i => ms[i].zoneLow + '-' + ms[i].zoneHigh).join('/'), cfg.trait, cfg.level, cfg.hammerId, cfg.star, G.kotsu === false ? 0 : 1, GM, kappa, eps, rho].join('|');
   if(TRAP_CACHE.has(key)) return TRAP_CACHE.get(key);
   const saved = simFirstMove;
   simFirstMove = false;                  // 地金特性が乗った後のロールと会心率で作る
@@ -3381,7 +3382,7 @@ async function stratMCAsync(ms, f, t, P, cfg, onProgress){
    手(move)は技オブジェクトを含むため、技はIDで送って受け側で引き直す。 */
 function mcSnapshot(){
   return { G: { trait:G.trait, posts:G.posts, temp:G.temp, focus:G.focus, masses:G.masses, level:G.level,
-                hammerId:G.hammerId, star:G.star, preset:G.preset },
+                hammerId:G.hammerId, star:G.star, kotsu:G.kotsu, preset:G.preset },
            lit: litMassIndex, simFirstMove, hs: HS, prev: PREV_SK };
 }
 function mcRestore(snap){

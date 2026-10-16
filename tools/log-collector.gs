@@ -25,7 +25,7 @@ const SHEET = '記録';
 const HEAD = ['受け取った日時', '記録の番号', '端末の番号(匿名)', '版', '素材', '地金特性', '職人Lv',
               'ハンマー', 'できのよさ', '許容誤差', '結果', '全マス到達', '残り集中力', '最後の温度',
               '最後の値(使うマス)', '手数(打った回数)', '取り消し', '始めた日時', '終えた日時', '手順(JSON)',
-              'ブラウザ', 'OS'];
+              'ブラウザ', 'OS', 'コツ'];   // コツ: レシピのコツ(V4.01 で足した。空の行はそれより前の版で、アプリはコツありで計算していた)
 
 // 裁縫の記録(アプリが craft: 'sew' を付けて送る)は、別のシートに書く
 const SEW_SHEET = '記録(裁縫)';
@@ -69,7 +69,7 @@ function doPost(e){
                   d.threshold, d.outcome, d.reached, fin.focus, fin.temp, (fin.masses || []).join(' / '),
                   steps.filter(s => s.t === 'exec').length, steps.filter(s => s.t === 'undo').length,
                   d.started, d.finished, JSON.stringify({ zones: d.zones, steps }),
-                  (d.env || {}).browser || '', (d.env || {}).os || '']);
+                  (d.env || {}).browser || '', (d.env || {}).os || '', d.kotsu === false ? 'なし' : 'あり']);
     return ContentService.createTextOutput('ok');
   } finally {
     lock.releaseLock();
@@ -110,21 +110,21 @@ const CRIT_HAMMER = { copper:[1.0,1.1,1.2,2.0], iron:[1.5,1.6,1.7,2.5], silver:[
 const CRIT_TRAIT_NAME = { kaishin:'威力会心率上昇', shuchu:'集中力変化', tataki:'たたき変化', modori:'戻り' };
 const CRIT_HAMMER_NAME = { copper:'銅', iron:'鉄', silver:'銀', platinum:'プラチナ', super:'超', miracle:'奇跡', light:'光' };
 // 装備の名前(集計を分ける単位)。職人スキルの会心アップは Lv30 で上限なので、Lv30 以上はまとめる
-function critEquip_(level, hammer, star){
+function critEquip_(level, hammer, star, kotsu){
   const lv = Number(level) || 0;
-  return (CRIT_HAMMER_NAME[hammer] || String(hammer)) + '★' + star + (lv >= 30 ? '' : ' Lv' + lv);
+  return (CRIT_HAMMER_NAME[hammer] || String(hammer)) + '★' + star + (lv >= 30 ? '' : ' Lv' + lv) + (kotsu === false ? ' コツなし' : '');
 }
-// 上乗せの無い会心率(割合)。職人スキルの会心アップ + コツをつかんでいる(+1.0%) + ハンマー(engine.js と同じ)
-function critBase_(level, hammer, star){
+// 上乗せの無い会心率(割合)。職人スキルの会心アップ + コツをつかんでいる(+1.0%。コツなしの局は 0) + ハンマー(engine.js と同じ)
+function critBase_(level, hammer, star, kotsu){
   const lv = Number(level) || 0;
   const passive = (lv >= 10 ? 0.1 : 0) + (lv >= 20 ? 0.2 : 0) + (lv >= 30 ? 0.3 : 0);
   const h = CRIT_HAMMER[hammer]; const s = Number(star);
-  return (passive + 1.0 + (h && h[s] !== undefined ? h[s] : 0)) / 100;
+  return (passive + (kotsu === false ? 0 : 1.0) + (h && h[s] !== undefined ? h[s] : 0)) / 100;
 }
 // 1局の手順から打撃を取り出し、add(打撃) に渡す。
 // 打撃 = { sit: 状況, cls: 技の種類, crit: 会心か, base: 基礎の会心率, cr: 見込みの会心率, both: 会心でも会心でなくても出る値か(新しい版だけ) }
-function critHitsOf_(trait, level, hammer, star, steps, add){
-  const base = critBase_(level, hammer, star);
+function critHitsOf_(trait, level, hammer, star, steps, add, kotsu){
+  const base = critBase_(level, hammer, star, kotsu);
   let cur = null, pend = [], hsOn = false;
   const flush = () => { pend.forEach(add); pend = []; };
   const sitOf = (t, lit) => (trait === 'kaishin' && lit) ? '点灯' :
@@ -174,7 +174,7 @@ function critHitsOf_(trait, level, hammer, star, steps, add){
 function critAggregate_(rows){
   const col = n => HEAD.indexOf(n);
   const iTrait = col('地金特性'), iLv = col('職人Lv'), iHam = col('ハンマー'), iStar = col('できのよさ'),
-        iRes = col('結果'), iJson = col('手順(JSON)');
+        iRes = col('結果'), iJson = col('手順(JSON)'), iKotsu = col('コツ');
   const groups = {}, byTrait = {}, byEquip = {};
   let records = 0, bad = 0, hits = 0;
   for(const r of rows){
@@ -182,9 +182,10 @@ function critAggregate_(rows){
     let d;
     try{ d = JSON.parse(r[iJson]); }catch(e){ bad++; continue; }
     const trait = r[iTrait];
-    const equip = critEquip_(r[iLv], r[iHam], r[iStar]);
+    const kotsu = iKotsu < 0 || r[iKotsu] !== 'なし';     // 空(コツの列を足す前の行)は、アプリの計算と同じくコツあり
+    const equip = critEquip_(r[iLv], r[iHam], r[iStar], kotsu);
     records++; byTrait[trait] = (byTrait[trait] || 0) + 1; byEquip[equip] = (byEquip[equip] || 0) + 1;
-    critHitsOf_(trait, r[iLv], r[iHam], r[iStar], d && d.steps, h => {
+    critHitsOf_(trait, r[iLv], r[iHam], r[iStar], d && d.steps, (h => {
       const k = equip + '|' + trait + '|' + h.sit + '|' + h.cls;
       const g = groups[k] || (groups[k] = { equip, base: h.base, trait, sit: h.sit, cls: h.cls, n: 0, crit: 0, sumBase: 0, sumCr: 0,
                                             sumVar: 0, nAll: 0, critAll: 0, nOld: 0, nBoth: 0, critBoth: 0 });
@@ -197,7 +198,7 @@ function critAggregate_(rows){
       if(h.both){ g.nBoth++; if(h.crit) g.critBoth++; return; }
       g.n++; if(h.crit) g.crit++;
       g.sumBase += h.base; g.sumCr += h.cr; g.sumVar += h.cr * (1 - h.cr);
-    });
+    }), kotsu);
   }
   // 局の多い装備から並べる(同じ装備の中は 地金特性・状況・技 の順)
   const list = Object.keys(groups).map(k => groups[k]).sort((a, b) =>
