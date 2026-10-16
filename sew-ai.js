@@ -27,6 +27,8 @@ const DEF = {
                      // 新しい15レシピ+代表9レシピ・各300局: 種1000 65.9% → 69.8%(z=5.84)・種5000 66.4% → 69.6%(z=4.60)。
                      // ミッショングラブ(選んだレシピ)は種1000 43.8% → 53.0%・種5000 44.8% → 53.8%(どちらも z=3.34)。r1 12 は差が出なかった
   r1N: null,         // マスの数ごとの r1 { 4: , 6: , 9: }(あれば r1 より先)
+  hConv: 0,          // 削りの h を下に凸にする(r1 を超える分 x に hConv × x² / (eta × hConvS) を足す)。大きいマスを先に減らす
+  hConvS: 100,
   regenRed: true,    // 再生布: 赤いマス(縫いすぎ)は、次の再生で戻る見込みで評価する
   regenRedMax: null, // そのマスが赤くなると赤いマスがこの数以上になる時は、赤いマスを戻る見込みで見ない(0 で使わない)。null ならマスの数ごとの regenRedMaxN
   regenRedMaxN: { 4: 3, 6: 2, 9: 3 },   // 2026-10-16、再生布・各10レシピ: 9マス 3(種1000で選び 種5000 z=3.00)・6マス 2(種1000 z=8.04・種5000 z=5.44)・4マス 3(種1000 z=2.29・種9000 z=2.32、+1pt 弱)
@@ -58,6 +60,7 @@ const DEF = {
   lockCostReal: false, // 精神統一の得の見積もりで、消費を今のターンの消費(虹布の半分・1.5倍)にする
   bulkLock: null,    // 削りの残り(各マスの r1 を超える分の合計)がこれ以上なら、強い・最強の固定を続ける。null で使わない
   bulkLockNet: -3,   // その時、今の強さの一番よい手の得がこれより大きいこと
+  bulkLockPow: null, // その固定を続ける強さ(null なら強い・最強)
   lockTrait: ['light4'], // 精神統一の得の見積もりで、続くターンの布の特性(光布の光るマス・虹布の消費と会心)を見る布とマスの数。true で全部
                          // (2026-10-16: 光布4マスで、種1000 z=1.76・種5000 z=2.86・Lv70〜75の10レシピ 種9000 z=3.92。虹布・再生布・6・9マスは差が出ず)
   lockSlack: 1,      // 固定するのは、順番に出てくる強さの中で手の価値が一番高い強さ(との差がこれ以内)の時だけ。null で見ない
@@ -113,8 +116,8 @@ function finishTable(cfg, pen, prm, muga){
 // h(残り): 残りが r1 までは仕上げの表(弱いで固定して仕上げる消費の期待値)。それより上は、1集中力あたり eta で減らせるとして直線でつなぐ
 function buildH(ft, prm, eta, regen){
   const { E, LO, HI } = ft;
-  const r1 = Math.min(prm.r1, HI), top = E[r1 - LO], bot = E[0];
-  const base = r => r > r1 ? top + (r - r1) / eta : r < LO ? bot + (LO - r) * 0.6 : E[r - LO];
+  const r1 = Math.min(prm.r1, HI), top = E[r1 - LO], bot = E[0], kc = prm.hConv / (eta * prm.hConvS);
+  const base = r => r > r1 ? top + (r - r1) / eta + kc * (r - r1) * (r - r1) : r < LO ? bot + (LO - r) * 0.6 : E[r - LO];
   if(!regen) return base;
   // 再生布: 赤いマスは次の再生で 12〜16 戻る(赤いマスは割合が1を超えるので、真っ先に戻る)
   const N = HI - LO + 1, H = new Float64Array(N);
@@ -230,15 +233,15 @@ function evalAction(g, cfg, ctx, a){
 }
 // 再生布: この手のあと、次のターンの始めに戻るマスの h の変化(手の結果は平均で見る)
 function regenDelta(g, cfg, a, h){
-  const g2 = applyMean(g, cfg, a);
+  const cum = meanCum(g, a);
   let t = -1, best = -Infinity;
-  for(let i = 0; i < g2.n; i++){
-    if(Math.abs(g2.base[i] - g2.cum[i]) <= SEW.P.yellow) continue;
-    const q = g2.cum[i] / g2.base[i]; if(q > best){ best = q; t = i; }
+  for(let i = 0; i < g.n; i++){
+    if(Math.abs(g.base[i] - cum[i]) <= SEW.P.yellow) continue;
+    const q = cum[i] / g.base[i]; if(q > best){ best = q; t = i; }
   }
   if(t < 0) return 0;
-  const r = g2.base[t] - g2.cum[t];
-  let s = 0; for(const amt of SEW.P.regen) s += h(r + Math.min(amt, g2.cum[t]));
+  const r = g.base[t] - cum[t];
+  let s = 0; for(const amt of SEW.P.regen) s += h(r + Math.min(amt, cum[t]));
   // 手そのものの評価は平均の局面ではないので、戻りの分だけを足す(戻らない場合との差)
   return h(r) - s / SEW.P.regen.length;
 }
@@ -253,26 +256,34 @@ function bestAction(g, cfg, ctx){
 // 打った後のマスを平均で進めた写し(精神統一の見積もり用)
 function applyMean(g, cfg, a){
   const g2 = SEW.cloneGame(g);
+  g2.cum = meanCum(g, a);
+  if(a.sk.kind === 'sew') for(const [i] of a.tg) g2.shitsuke[i] = false;
+  g2.glow = -1;
+  return g2;
+}
+// 打った後の各マスの縫った量(平均で進める)
+function meanCum(g, a){
+  const cum = g.cum.slice();
   if(a.sk.kind === 'sew'){
     for(const [i, mul] of a.tg){
       const cm = (g.shitsuke[i] ? 2 : 1) * (g.glow === i ? SEW.P.glowMul : 1);
       let s = 0; for(let b = 12; b <= 18; b++) s += SEW.rollValue(b, mul, g.power, cm);
-      g2.cum[i] += Math.round(s / 7); g2.shitsuke[i] = false;
+      cum[i] += Math.round(s / 7);
     }
   } else if(a.sk.kind === 'midare'){
-    for(let i = 0; i < g.n; i++){ let s = 0; for(let b = 12; b <= 18; b++) for(const m of a.sk.muls) s += SEW.rollValue(b, m, g.power, 1); g2.cum[i] += Math.round(s / 7 / g.n); }
+    for(let i = 0; i < g.n; i++){ let s = 0; for(let b = 12; b <= 18; b++) for(const m of a.sk.muls) s += SEW.rollValue(b, m, g.power, 1); cum[i] += Math.round(s / 7 / g.n); }
   } else if(a.sk.kind === 'hogushi'){
-    const i = a.tg[0][0]; g2.cum[i] = Math.max(0, g2.cum[i] - Math.floor(7.5 * SEW.POWER[g.power]));
+    const i = a.tg[0][0]; cum[i] = Math.max(0, cum[i] - Math.floor(7.5 * SEW.POWER[g.power]));
   }
-  g2.glow = -1;
-  return g2;
+  return cum;
 }
 // 精神統一の得: 固定すると、今の強さの手を3回(今のターンの分を引いて、実質2回ぶん)多く打てる
-function lockGain(g, cfg, ctx){
+// best0: 今の局面の一番よい手(呼ぶ側で計算済みなら渡す。同じ計算を省く)
+function lockGain(g, cfg, ctx, best0){
   let gg = g, nets = [];
   for(let k = 0; k < 3; k++){
     if(ctx.lockTrait && k > 0){ gg.turn = g.turn + k; gg.glow = -1; }   // k 手目は k ターン後(布の特性をそのターンのもので見る)。gg は写し
-    const b = bestAction(gg, cfg, ctx);
+    const b = k === 0 && best0 !== undefined ? best0 : bestAction(gg, cfg, ctx);
     if(!b || b.net <= 0) break;
     let net = b.net;
     if(ctx.lockTrait && k > 0 && g.cloth === 'light' && SEW.isTraitTurn(gg.turn + 1)){
@@ -289,7 +300,7 @@ function lockGain(g, cfg, ctx){
 
 // 今の強さで固定してよいか: 順番に出てくる強さ(「？」があれば全部)の中で、今の局面の一番よい手の価値が
 // 一番高い強さか、それとの差が lockSlack 以内の時だけ固定する(すぐ後に最強が来るのに強いで固定し続けないように)
-function lockWorth(g, cfg, ctx){
+function lockWorth(g, cfg, ctx, best0){
   if(ctx.prm.lockSlack === null) return true;
   const set = new Set(g.cycle.filter(p => p !== 'unknown'));
   if(g.cycle.includes('unknown')) ['weak', 'normal', 'strong', 'strongest'].forEach(p => set.add(p));
@@ -297,13 +308,13 @@ function lockWorth(g, cfg, ctx){
   let mine = -Infinity, top = -Infinity;
   for(const p of set){
     g.power = p;
-    const b = bestAction(g, cfg, ctx);
+    const b = p === keep && best0 !== undefined ? best0 : bestAction(g, cfg, ctx);
     const v = b ? b.net : -Infinity;
     if(p === keep) mine = v;
     if(v > top) top = v;
   }
   g.power = keep;
-  if(!set.has(keep)){ const b = bestAction(g, cfg, ctx); mine = b ? b.net : -Infinity; }
+  if(!set.has(keep)){ const b = best0 !== undefined ? best0 : bestAction(g, cfg, ctx); mine = b ? b.net : -Infinity; }
   return mine >= top - ctx.prm.lockSlack;
 }
 
@@ -371,16 +382,20 @@ function cellRow(qt, r, NG, G){
   return out;
 }
 // 2つの表(誤差の枠 e = 0..T・集中力 k = 0..NG で、確率の積の最大)を合わせる
+// (確率0の所は積が最大にならないので飛ばし、最大が1に届いたらそれ以上は見ない。最大値は変わらない)
 function combine(A, B, T, NG){
-  const C = [];
+  const nz = R => R.map(r => { if(!r) return NG + 1; let k = 0; while(k <= NG && !(r[k] > 0)) k++; return k; });
+  const za = nz(A), zb = nz(B), C = [];
   for(let e = 0; e <= T; e++){
     const row = new Float32Array(NG + 1);
     for(let e1 = 0; e1 <= e; e1++){
       const a = A[e1], b = B[e - e1];
       if(!a || !b) continue;
-      for(let k = 0; k <= NG; k++){
+      const z1 = za[e1], z2 = zb[e - e1];
+      for(let k = z1 + z2; k <= NG; k++){
         let m = row[k];
-        for(let k1 = 0; k1 <= k; k1++){ const v = a[k1] * b[k - k1]; if(v > m) m = v; }
+        if(m >= 1) continue;
+        for(let k1 = z1, hi = k - z2; k1 <= hi; k1++){ const v = a[k1] * b[k - k1]; if(v > m) m = v; }
         row[k] = m;
       }
     }
@@ -462,15 +477,19 @@ function endPrep(rv, focus, T, qt, prm){
   return { G, NG, T, cells, loo, all: pre[n - 1] };
 }
 // マス i の残りを r' にした時の、盤の★3の確率(集中力 focus' で)
+// (表 Q から直接読む。cellRow で行を作ると、呼ぶたびに配列を作り直して遅かった)
 function looValue(ep, qt, i, r2, focus2, Wx){
   const k2 = Math.floor(focus2 / ep.G);
   if(k2 < 0) return 0;
-  const k = Math.min(k2, ep.NG), rows = cellRow(qt, r2, k, ep.G), W = Wx === undefined ? ep.loo[i] : Wx;
+  if(r2 < qt.LO || r2 > qt.HI) return 0;
+  const k = Math.min(k2, ep.NG), W = Wx === undefined ? ep.loo[i] : Wx;
+  const off = (r2 - qt.LO) * (qt.FM + 1), FM = qt.FM, G = ep.G, T = ep.T;
   let best = 0;
-  for(let a = 0; a <= Math.min(ep.T, 4); a++){
-    const ra = rows[a];
+  for(let a = 0; a <= Math.min(T, 4); a++){
+    const Qa = qt.Q[a], Wr = W ? W[T - a] : null;
     for(let k1 = 0; k1 <= k; k1++){
-      const v = ra[k1] * (W ? W[ep.T - a][k - k1] : 1);
+      const q = Qa[off + Math.min(FM, k1 * G)];
+      const v = Wr ? q * Wr[k - k1] : q;
       if(v > best) best = v;
     }
   }
@@ -630,11 +649,11 @@ function choosePlain(g, cfg, ctx){
   // 精神統一(固定の最後のターンか、固定していない時)
   const seishin = SEW.SKILL.seishin;
   const upTurn = g.cloth === 'rainbow' && SEW.isTraitTurn(g.turn + 1) && SEW.rainbowMode(g.turn + 1) === 'up';
-  if(seishin.lv <= cfg.level && g.lockRem <= 1 && g.focus >= seishin.cost + 5 && !(ctx.prm.noLockOnUp && upTurn) && lockWorth(g, cfg, ctx)){
-    const lg = lockGain(g, cfg, ctx);
+  if(seishin.lv <= cfg.level && g.lockRem <= 1 && g.focus >= seishin.cost + 5 && !(ctx.prm.noLockOnUp && upTurn) && lockWorth(g, cfg, ctx, best)){
+    const lg = lockGain(g, cfg, ctx, best);
     if(lg > ctx.prm.lockMin) return { skill: 'seishin', why: `固定の得 ${lg.toFixed(1)}` };
     // 削りがまだ多く残っている間は、強い・最強の固定を続ける(小さいマスができて、1手の得が小さく見えても)
-    if(ctx.prm.bulkLock !== null && (g.power === 'strong' || g.power === 'strongest') && best && best.net > ctx.prm.bulkLockNet){
+    if(ctx.prm.bulkLock !== null && (ctx.prm.bulkLockPow || ['strong', 'strongest']).includes(g.power) && best && best.net > ctx.prm.bulkLockNet){
       const rem = g.base.reduce((s, b, i) => s + Math.max(0, b - g.cum[i] - ctx.prm.r1), 0);
       if(rem >= ctx.prm.bulkLock) return { skill: 'seishin', why: `削りが残り ${rem}` };
     }

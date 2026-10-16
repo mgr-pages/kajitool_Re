@@ -13,7 +13,7 @@
      };
    使い方: node tools/sew-batch.js <試験のファイル> [レシピ名,…|代表|all] [局数] [種の始め] ['<JSON の引数>']
    ・条件(職人Lv・針など)は試験の側で決める。既定の推奨手は sew-ai.js(環境変数 SEW_AI で作業用の写しに替えられる)。
-   ・1つの仕事の局数は自動で決める(コアの数の6倍ほどの仕事になるように)。環境変数 POOL_CHUNK で指定もできる。
+   ・1つの仕事の局数は自動で決める(コアの数の8倍以上の仕事になるように、1つは多くても50局)。環境変数 POOL_CHUNK で指定もできる。
    ===================================================================== */
 'use strict';
 const path = require('path');
@@ -53,8 +53,10 @@ async function runSew({ exp, names, N, seed, args, label, quiet }){
   const { runPool, chunks, procs } = require('./pool.js');
   const { SEW_RECIPES } = lib();
   const recipes = names.map(n => { const r = SEW_RECIPES.find(x => x.name === n); if(!r) throw new Error('レシピが見つかりません: ' + n); return r; });
-  const per = Math.max(1, Math.ceil(procs() * 6 / recipes.length));
-  const size = Number(process.env.POOL_CHUNK) || Math.max(5, Math.ceil(N / per));
+  // 仕事は細かく分ける(準備は 1レシピ数十ミリ秒で、細かくしても損がない。最後に1つだけ重い仕事が残って待つのを防ぐ)。
+  // コアの数の8倍以上の仕事になるようにし、1つの仕事は多くても50局にする
+  const per = Math.max(1, Math.ceil(procs() * 8 / recipes.length));
+  const size = Number(process.env.POOL_CHUNK) || Math.max(5, Math.min(50, Math.ceil(N / per)));
   const jobs = [];
   for(const r of recipes) for(const [from, to] of chunks(N, size))
     // 重さの目安: マスの数が多いほど重い(終盤の表と先読み)。前に回した時の秒数があればそちらを使う
