@@ -1,7 +1,7 @@
 {
   "config": {
     "games": 300,
-    "mc": 2,
+    "mc": 0,
     "presets": [
       "kagayaki",
       "amatsuyu",
@@ -21,16 +21,6 @@
   },
   "results": {
     "kagayaki": {
-      "mc": {
-        "games": 2,
-        "great": 0,
-        "unreached": 0,
-        "over": 0,
-        "avgErr": 11.5,
-        "avgMoves": 21.5,
-        "avgFocusLeft": 10,
-        "fingerprint": "90721f3f"
-      },
       "greedy": {
         "games": 300,
         "great": 61,
@@ -43,16 +33,6 @@
       }
     },
     "amatsuyu": {
-      "mc": {
-        "games": 2,
-        "great": 50,
-        "unreached": 0,
-        "over": 0,
-        "avgErr": 7.5,
-        "avgMoves": 23.5,
-        "avgFocusLeft": 6,
-        "fingerprint": "5f93e4a8"
-      },
       "greedy": {
         "games": 300,
         "great": 55.3,
@@ -65,16 +45,6 @@
       }
     },
     "hidane": {
-      "mc": {
-        "games": 2,
-        "great": 100,
-        "unreached": 0,
-        "over": 0,
-        "avgErr": 6,
-        "avgMoves": 24.5,
-        "avgFocusLeft": 13.5,
-        "fingerprint": "8a9de8d8"
-      },
       "greedy": {
         "games": 300,
         "great": 59.7,
@@ -87,16 +57,6 @@
       }
     },
     "bloom": {
-      "mc": {
-        "games": 2,
-        "great": 100,
-        "unreached": 0,
-        "over": 0,
-        "avgErr": 2,
-        "avgMoves": 22,
-        "avgFocusLeft": 4,
-        "fingerprint": "64e06bec"
-      },
       "greedy": {
         "games": 300,
         "great": 46.7,
@@ -109,16 +69,6 @@
       }
     },
     "kimonsho": {
-      "mc": {
-        "games": 2,
-        "great": 100,
-        "unreached": 0,
-        "over": 0,
-        "avgErr": 0,
-        "avgMoves": 23,
-        "avgFocusLeft": 27.5,
-        "fingerprint": "be1e8db6"
-      },
       "greedy": {
         "games": 300,
         "great": 56.3,
@@ -131,16 +81,6 @@
       }
     },
     "yumon": {
-      "mc": {
-        "games": 2,
-        "great": 50,
-        "unreached": 0,
-        "over": 0,
-        "avgErr": 4.5,
-        "avgMoves": 28,
-        "avgFocusLeft": 5.5,
-        "fingerprint": "3ffdd4f2"
-      },
       "greedy": {
         "games": 300,
         "great": 42.3,
@@ -153,16 +93,6 @@
       }
     },
     "orb": {
-      "mc": {
-        "games": 2,
-        "great": 100,
-        "unreached": 0,
-        "over": 0,
-        "avgErr": 2.5,
-        "avgMoves": 20,
-        "avgFocusLeft": 3,
-        "fingerprint": "f637c089"
-      },
       "greedy": {
         "games": 300,
         "great": 66.3,
@@ -175,16 +105,6 @@
       }
     },
     "kajihammer": {
-      "mc": {
-        "games": 2,
-        "great": 50,
-        "unreached": 0,
-        "over": 0,
-        "avgErr": 4,
-        "avgMoves": 18,
-        "avgFocusLeft": 32,
-        "fingerprint": "b140f55c"
-      },
       "greedy": {
         "games": 300,
         "great": 78.3,
@@ -197,16 +117,6 @@
       }
     },
     "maoulamp": {
-      "mc": {
-        "games": 2,
-        "great": 50,
-        "unreached": 0,
-        "over": 0,
-        "avgErr": 3,
-        "avgMoves": 19,
-        "avgFocusLeft": 17.5,
-        "fingerprint": "c3deabc6"
-      },
       "greedy": {
         "games": 300,
         "great": 60.3,

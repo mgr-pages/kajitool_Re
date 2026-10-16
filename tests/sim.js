@@ -39,7 +39,9 @@ const { fork } = require('child_process');
 const ROOT = path.join(__dirname, '..');
 const BASELINE = path.join(__dirname, 'baseline.json');
 // 基準の条件。変えると基準と比べられなくなるので、変えたら --update する。
-const DEFAULT = { games: 300, mc: 2, presets: ['kagayaki', 'amatsuyu', 'hidane', 'bloom', 'kimonsho', 'yumon', 'orb', 'kajihammer', 'maoulamp'], seed: 20260926 };
+// 先読みの行は既定では打たない(利用者の指示 2026-10-16「成績テストに先読みいらん」。1組に数分かかり、テストの時間の大半だった)。
+// 先読みも見る時は --mc 2 などを付ける(その時は基準とは照合しない)。
+const DEFAULT = { games: 300, mc: 0, presets: ['kagayaki', 'amatsuyu', 'hidane', 'bloom', 'kimonsho', 'yumon', 'orb', 'kajihammer', 'maoulamp'], seed: 20260926 };
 const NAMES = { kagayaki: '超かがやきの樹液', amatsuyu: '超あまつゆのいと', hidane: '超ようせいのひだね', bloom: 'ブルームシールド', kimonsho: '輝紋章の盾', yumon: '幽紋刀', orb: '虹色のオーブ', kajihammer: '光の鍛冶ハンマー', maoulamp: 'まおうの錬金ランプ' };
 
 // 32bit FNV-1a。全対局の手順から作る指紋。エンジンの挙動が1手でも変われば値が変わる。
