@@ -252,7 +252,7 @@ function renderHeader(){
   }
   const hm = HAMMERS[G.hammerId];
   document.getElementById('v-gear').textContent =
-    (hm ? hm.name : G.hammerId) + '★' + G.star + ' / Lv' + G.level;
+    (hm ? hm.name : G.hammerId) + '★' + G.star + ' / Lv' + G.level + (G.kotsu === false ? ' / コツなし' : '');
   document.getElementById('v-temp').textContent = G.temp;
   document.getElementById('v-focus').textContent = G.focus;
   // 必殺: なし → (チャージが来たら選ぶ)チャージ → (使う)効果中 → (叩く)使用済み
@@ -678,7 +678,7 @@ let CALC_AGAIN = false;   // 計算中に、もう一度の計算を求められ
 // 計算に使う局面(盤面・温度・集中力・必殺・点灯・直前の手・入力待ち・設定)。計算中にこれが変わった時
 // (温度・集中力・マスの値の手直し、必殺の切り替え、手順の「ここまで打った」、取り消しなど)は、その計算の手は別の局面のものなので出さない
 function calcKey(){
-  return JSON.stringify([G.preset, G.trait, G.level, G.hammerId, G.star, G.temp, G.focus, G.hs || 0, litMassIndex,
+  return JSON.stringify([G.preset, G.trait, G.level, G.hammerId, G.star, G.kotsu, G.temp, G.focus, G.hs || 0, litMassIndex,
     G.hist.length, G.pending, G.masses.map(m => [m.current, m.zoneLow, m.zoneHigh, !!m.off])]);
 }
 function setCalcProgress(pct, label){
@@ -994,6 +994,7 @@ function readSettings(){
   G.level = Number(document.getElementById('s-level').value)||80;
   G.hammerId = document.getElementById('s-hammer').value;
   G.star = Number(document.getElementById('s-star').value);
+  G.kotsu = document.getElementById('s-kotsu').value === '1';
   G.trait = document.getElementById('s-trait').value;
 }
 function applySettings(){
@@ -1003,7 +1004,7 @@ function applySettings(){
   // 地金特性を切り替えたら点灯の記録は意味を失う。
   // 残すと威力会心率上昇に戻したとき、古い点灯が復活する。
   if(G.trait !== traitBefore) clearLit();
-  // レベル・ハンマー・★・地金特性はロールにも会心率にも効く。
+  // レベル・ハンマー・★・コツ・地金特性はロールか会心率に効く。
   // 変更後に古い推奨手と勝率を残すと、別条件の計算結果を見せることになる。
   G.rec = null; G.plan = [];
   const cap = FOCUS_CAP[G.level] || FOCUS_CAP[80];
@@ -1208,7 +1209,7 @@ const SKEY='kajiAdvisorStateV1';
 function save(){
   try{ localStorage.setItem(SKEY, JSON.stringify({
     temp:G.temp, focus:G.focus, masses:G.masses,
-    level:G.level, hammerId:G.hammerId, star:G.star, trait:G.trait, preset:G.preset, lit:litMassIndex,
+    level:G.level, hammerId:G.hammerId, star:G.star, kotsu:G.kotsu, trait:G.trait, preset:G.preset, lit:litMassIndex,
     pending:G.pending, showRange:G.showRange, hist:G.hist, posts:G.posts, obs:G.obs, hs:G.hs, hsUsed:G.hsUsed
   })); }catch(e){}
 }
@@ -1232,6 +1233,7 @@ function load(){
     if(!Array.isArray(G.hist)) G.hist = [];
     if(G.hs !== 1 && G.hs !== 2) G.hs = 0;
     G.hsUsed = !!G.hsUsed;
+    if(typeof G.kotsu !== 'boolean') G.kotsu = true;   // コツの欄を足す前の保存データは「あり」(それまでの計算と同じ)
     // 廃止した素材が保存データに残っていた場合は既定へ戻す
     if(G.preset !== 'custom' && !PRESETS[G.preset]) G.preset = 'kagayaki';
     if(typeof G.showRange !== 'boolean') G.showRange = true;
@@ -1239,6 +1241,7 @@ function load(){
     document.getElementById('s-level').value=G.level;
     document.getElementById('s-hammer').value=G.hammerId;
     document.getElementById('s-star').value=G.star;
+    document.getElementById('s-kotsu').value=G.kotsu ? '1' : '0';
     document.getElementById('s-trait').value=G.trait;
     delete G.barMax;                   // 以前の版で手入力したバーの最大値は使わない(自動で決まる)
     if(G.preset === 'custom'){
@@ -1334,7 +1337,7 @@ document.getElementById('pickModal').addEventListener('click', e => {
     if(d.key !== G.preset) onPresetChange(d.key);   // 今と同じ商材を選んだ時は何もしない
   }
 });
-['s-level','s-hammer','s-star','s-trait'].forEach(id=>{
+['s-level','s-hammer','s-star','s-kotsu','s-trait'].forEach(id=>{
   document.getElementById(id).addEventListener('change', applySettings);
 });
 

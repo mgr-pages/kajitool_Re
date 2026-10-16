@@ -6,13 +6,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- 版は index.html が元(tools/stamp.py が書き写す) -->
-<title>鍛冶 - 職人アドバイザーV4.00</title>
+<title>鍛冶 - 職人アドバイザーV4.01</title>
 <!-- アプリのアイコン。PNG は icon.svg から node tools/make-icons.js で作る -->
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=c24d6a6d">
+<link rel="stylesheet" href="style.css?v=41a44134">
 </head>
 <body>
 
@@ -96,6 +96,11 @@
       <select id="s-star">
         <option value="0">★0</option><option value="1">★1</option>
         <option value="2">★2</option><option value="3" selected>★3</option>
+      </select></div>
+    <!-- レシピのコツ(つかんでいれば会心率 +1.0%)。裁縫の画面と同じ欄 -->
+    <div class="set-row"><label>レシピのコツ</label>
+      <select id="s-kotsu">
+        <option value="1" selected>あり</option><option value="0">なし</option>
       </select></div>
     <div class="set-row"><label>地金特性</label>
       <select id="s-trait">
@@ -194,9 +199,9 @@
   </div>
 </div>
 
-<script src="engine.js?v=c24d6a6d"></script>
-<script src="mc-pool.js?v=c24d6a6d"></script>
-<script src="gamelog.js?v=c24d6a6d"></script>
-<script src="ui.js?v=c24d6a6d"></script>
+<script src="engine.js?v=41a44134"></script>
+<script src="mc-pool.js?v=41a44134"></script>
+<script src="gamelog.js?v=41a44134"></script>
+<script src="ui.js?v=41a44134"></script>
 </body>
 </html>

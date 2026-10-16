@@ -12,7 +12,9 @@ html.pg-sew{ --bg:#efe7d9; --bg2:#f8f3e8; --panel:#fcf8ef; --line:#c3b394; --sun
   .pg-sew .stat.pw{flex:1.25 1 0;}
   .pg-sew .stat.pw .val{font-size:15px;}
 }
-@media (max-width:359px){ .pg-sew .stat.pw .val{font-size:13px;} .pg-sew .stat.pw .lbl{display:none;} }
+/* 幅が狭い時: 3つの欄(集中力・ぬいパワー・必殺)が収まるように、ぬいパワーの見出しを省き、320px では ✎ の印も省く */
+@media (max-width:379px){ .pg-sew .stat.pw .lbl{display:none;} }
+@media (max-width:359px){ .pg-sew .stat.pw{flex:1.1 1 0;} .pg-sew .stat.pw .val{font-size:13px;} .pg-sew .stat .edit{display:none;} }
 
 /* ===== 盤 ===== */
 .sboard{display:grid; gap:8px; margin:4px auto 0; max-width:420px; padding:0 6px;}
@@ -25,7 +27,6 @@ html.pg-sew{ --bg:#efe7d9; --bg2:#f8f3e8; --panel:#fcf8ef; --line:#c3b394; --sun
 .scell.void{visibility:hidden; pointer-events:none;}
 .scell .no{position:absolute; top:5px; left:7px; font-size:11px; color:var(--dim); font-weight:700;}
 .scell .rem{font-size:34px; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums;}
-.scell .base{font-size:11px; color:var(--dim); margin-top:2px;}
 /* 色はゲームのゲージに合わせる: 黄色 = 基準値の±4以内、赤 = 5以上縫いすぎ */
 .scell.yellow{background:linear-gradient(180deg,#fffbe6, #fbefb8); border-color:#d6b84a;}
 .scell.yellow .rem{color:#7a5a00;}
@@ -39,28 +40,37 @@ html.pg-sew{ --bg:#efe7d9; --bg2:#f8f3e8; --panel:#fcf8ef; --line:#c3b394; --sun
 /* 結果の入力待ちのマス(鍛冶の画面と同じく「入力」の札を付けて、枠を点滅させる) */
 .scell.pend{border-color:var(--ember) !important; animation:needpulse 1.3s ease-in-out infinite;}
 .scell .no .in{margin-left:5px; background:var(--ember); color:#fbf3e0; font-size:10px; padding:1px 6px; border-radius:8px; vertical-align:1px;}
+/* ターンの始めに盤から選ぶ時(光ったマス・再生したマス): 鍛冶の点灯マスの選択と同じく、選べるマスの枠を点滅させ、
+   選べないマスは薄くして押せなくする(点滅は style.css の litblink) */
+.scell.pick{outline:2px solid var(--acc); outline-offset:-2px; animation:litblink 1.1s ease-in-out infinite;}
+.scell.dis{opacity:.35; cursor:default;}
+.scell:disabled{color:var(--text);}
+/* みだれぬいで値を入れ終えたマス */
+.scell.done .no::after{content:'✓'; margin-left:5px; color:var(--green); font-weight:800;}
 .scell .tags{position:absolute; bottom:4px; right:6px; display:flex; gap:3px;}
 .scell .tag{font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:8px;}
 .scell .tag.glow{background:#f7d24a; color:#5a4300;}
 .scell .tag.shi{background:#dcd6f2; color:var(--sew);}
 
-/* 誤差の合計 */
+/* 誤差の合計(全マスが黄色の時だけ出す) */
 .ssum{text-align:center; font-size:13px; color:var(--dim); margin:10px 0 4px;}
+.ssum:empty{display:none;}
 .ssum b{font-size:16px; color:var(--text); font-variant-numeric:tabular-nums;}
 .ssum .ssub{display:inline-block; margin-left:8px; font-size:11.5px;}
 .ssum .ok{color:var(--green);}
 .ssum .ng{color:var(--ember);}
 
-/* ぬいパワーの順番 */
-.cyc{display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin:6px auto 8px; max-width:420px; padding:0 6px;}
-.cyc-h{width:100%; text-align:center; font-size:11px; color:var(--dim); margin-bottom:2px;}
-.cyc button{min-width:34px; padding:4px 6px; border-radius:8px; border:1px solid var(--line); background:var(--panel);
+/* 何ターン目かと、ぬいパワーの順番 */
+/* 順番は最長10個。幅390pxで「◯ターン目」と1行に収まる大きさにする */
+.cyc{display:flex; flex-wrap:wrap; justify-content:center; gap:3px; margin:10px auto 8px; max-width:420px; padding:0 6px;}
+.cyc-t{font-size:11.5px; font-weight:700; color:var(--dim); align-self:center; margin-right:4px; white-space:nowrap;}
+.cyc button{min-width:28px; padding:4px 4px; border-radius:8px; border:1px solid var(--line); background:var(--panel);
   font-size:12px; font-weight:700; color:var(--dim); font-family:inherit;}
 .cyc button.q{color:var(--gold);}
 .cyc button.now, .cyc button.now.q{background:var(--sew); border-color:var(--sew); color:#fff;}
-.cyc .lock{font-size:11px; color:var(--sew); align-self:center; margin-left:4px;}
 
-/* 推奨手 */
+/* 推奨手(ターンの始めの入力の間は空にするので、欄ごと隠す) */
+.pg-sew .rec:empty{display:none;}
 .rec .rec-skill .tgt{font-size:13px; color:var(--dim); font-weight:700; margin-left:6px;}
 .rec .rec-p{font-size:12px; color:var(--green); font-weight:700;}
 .inp{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin-bottom:8px;}
@@ -105,14 +115,9 @@ html.pg-sew{ --bg:#efe7d9; --bg2:#f8f3e8; --panel:#fcf8ef; --line:#c3b394; --sun
   font-size:15px; font-weight:800; color:var(--text); font-family:inherit;}
 .pk-grid button small{display:block; font-size:11px; font-weight:400; color:var(--dim); margin-top:2px;}
 
-/* 特技一覧 */
-.sk-note{font-size:11px; color:var(--dim); margin-top:6px;}
-.set-note{font-size:11px; color:var(--dim); margin:4px 0 0;}
-
 @media (min-width:760px){
   .sboard{max-width:520px; gap:12px;}
   .scell{min-height:120px;}
   .scell .rem{font-size:46px;}
-  .scell .base{font-size:13px;}
-  .cyc{max-width:520px;}
+    .cyc{max-width:520px;}
 }
