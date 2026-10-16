@@ -9,10 +9,16 @@
   --ink:#7a5c28;          /* 枠の濃い方 */
   --sunk:#e6d5ae;         /* バーやテンキーの窪んだ面 */
   --acc:var(--ember);     /* 操作を促す箇所(手動設定・点灯マスの選択・計算中のバー) */
+  /* 日本語のフォントだけを並べる(中国語のフォントは一切使わない。利用者の指示)。
+     端末ごとの標準の日本語フォント → 入っていることの多い日本語フォントの順。
+     汎用の sans-serif は最後の受け皿(lang="ja" なので日本語のフォントが選ばれる) */
+  --font-ja:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic","YuGothic",
+    "Meiryo","BIZ UDPGothic","Noto Sans JP","Noto Sans CJK JP","Source Han Sans JP",
+    "IPAPGothic","IPAGothic",sans-serif;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0; padding:0; background:var(--bg); color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+  font-family:-apple-system,BlinkMacSystemFont,var(--font-ja);
   overscroll-behavior:none;}
 body{padding-bottom:96px;}
 input,select,button{font-family:inherit; -webkit-appearance:none; appearance:none;}
@@ -190,8 +196,7 @@ input,select,button{font-family:inherit; -webkit-appearance:none; appearance:non
    外部フォントは読み込まないので単一ファイルのまま。 */
 .cell .cur, .cell .zn, .stat .val,
 .pad-disp, .pad-res, table.sk, .zrow input, .cand, .pexec .s, .hstep .ht{
-  font-family:"IBM Plex Sans","Source Sans 3","Noto Sans","Segoe UI",
-    "Hiragino Sans","Noto Sans JP",system-ui,-apple-system,sans-serif;
+  font-family:"IBM Plex Sans","Source Sans 3","Noto Sans","Segoe UI",-apple-system,var(--font-ja);
   font-variant-numeric:tabular-nums lining-nums;
   font-feature-settings:"tnum" 1,"lnum" 1;
 }
