@@ -15,9 +15,10 @@
 
 const SKEY = 'sewAdvisorStateV1';
 const SEW_LOG_CUR = 'sewAdvisorLogCurV1';
-// 終盤の際どい判断の試し打ち(sew-ai.js の chooseEndMC)。引き継ぎ資料の 9-4
+// 試し打ち(先読み)。終盤の際どい判断(sew-ai.js の chooseEndMC)と、削りの手(chooseBulkMC)。引き継ぎ資料の 9-4
 // ms: 1手の試し打ちの時間の上限(遅い端末で待たせすぎないため。上限に届かなければ、上限なしと同じ手)
-const SEW_AI_PARAMS = { endMC: { K: 3, R: 32, z: 2, lo: 0.02, hi: 0.98, gap: 0.1, seed: 1, ms: 5000 } };
+const SEW_AI_PARAMS = { endMC: { K: 3, R: 32, z: 2, lo: 0.02, hi: 0.98, gap: 0.1, seed: 1, ms: 5000 },
+                        bulkMC: { K: 3, R: 24, z: 2, seed: 7, ms: 5000 } };
 const CAT_JA = { head: 'アタマ', body_upper: 'からだ上', body_lower: 'からだ下', arm: 'ウデ', leg: '足' };
 const CAT_ORDER = ['body_upper', 'body_lower', 'head', 'arm', 'leg'];
 const CLOTH_JA = { normal: '通常の布', regen: '再生布', rainbow: '虹布', light: '光布' };
