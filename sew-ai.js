@@ -48,7 +48,8 @@ const DEF = {
                      // 画面(sew-ui.js の SEW_AI_PARAMS)では { K:3, R:32, z:2, lo:0.02, hi:0.98, gap:0.1, seed:1, ms:5000 } を使う
                      // (2026-10-16、代表9レシピ・各300局: 種1000 72.5% → 74.3%(z=4.72)・種5000 72.9% → 74.7%(z=4.46))。
                      // 試験の道具では遅くなるので、ふだんは使わない
-  bulkMC: null,      // 削り(終盤の前)の手も試し打ちで確かめる { K: 候補の数, R: 本数, z: 乗り換えの基準, seed, ms: 時間の上限(省略可) }。
+  bulkMC: null,      // 削り(終盤の前)の手も試し打ちで確かめる { K: 候補の数, R: 本数, z: 乗り換えの基準, seed, ms: 時間の上限(省略可),
+                     //   gap: ふだんの評価の得がこれ以上低い手は候補にしない(省略可), batch・drop: 打ち切りあり(mcRace。省略可) }。
                      // 候補は ふだんの手・精神統一(できる時)・ふだんの評価の上位。ふだんの手より z 以上はっきり良い時だけ乗り換える
   endMinP: 0.002,    // 終盤の評価で、どの手でも★3の確率がこれ未満なら、ふだんの選び方に戻す
   endTieW: 0.01,     // 終盤の手選びで、集中力を endTieMul 倍に減らした時の★3の確率を、この重みで足す。
@@ -718,7 +719,9 @@ function chooseBulkMC(g, cfg, ctx, base, P){
   const sc = [];
   for(const a of ctx.actions){ const e = evalAction(g, cfg, ctx, a); if(e) sc.push(e); }
   sc.sort((x, y) => y.net - x.net);
-  for(const e of sc){ if(cands.length >= P.K) break; push({ skill: e.a.skill, anchor: e.a.anchor, net: e.net }); }
+  // P.gap があれば、ふだんの評価の得が一番よい手より P.gap 以上低い手は候補にしない(試し打ちを際どい手だけにする)
+  const ref = base.net !== undefined ? base.net : (sc.length ? sc[0].net : 0);
+  for(const e of sc){ if(cands.length >= P.K) break; if(P.gap !== undefined && e.net < ref - P.gap) break; push({ skill: e.a.skill, anchor: e.a.anchor, net: e.net }); }
   if(cands.length < 2) return base;
   return mcCompare(g, cfg, ctx, cands, P);
 }
