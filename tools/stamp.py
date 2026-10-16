@@ -7,7 +7,7 @@
 中身が変わった時だけ印が変わり、ブラウザは必ず新しいファイルを読み込む。
 Worker 用のファイルには mc-pool.js が同じ印を引き継ぐ。
 
-版の番号(V3.xx)は index.html の <title> が元。kaji.html・sew.html の <title> の番号を、それに書き換える。
+版の番号(V4.xx)は index.html の <title> が元。kaji.html・sew.html の <title> の番号を、それに書き換える。
 
 使い方: コードを変えたらコミットの前に  python3 tools/stamp.py
 """
@@ -29,7 +29,7 @@ def main():
         h.update(re.sub(rb'--css-ver:"[0-9a-z]+"', b'', re.sub(rb'\?v=[0-9a-z]+', b'', data)))
     ver = h.hexdigest()[:8]
     m = re.search(r'<title>[^<]*?(' + VER_RE + r')</title>', (ROOT / 'index.html').read_text(encoding='utf-8'))
-    if not m: raise SystemExit('index.html の <title> に版の番号(V3.xx)が見つかりません')
+    if not m: raise SystemExit('index.html の <title> に版の番号(V4.xx)が見つかりません')
     app_ver = m.group(1)
     ref = r'((?:href|src)="(?:%s))\?v=[0-9a-z]+"' % '|'.join(map(re.escape, assets))
     for page in PAGES:

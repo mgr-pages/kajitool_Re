@@ -9,7 +9,7 @@
 
 ## 版の番号
 
-`index.html` の `<title>` にある `V3.xx`。`kaji.html`・`sew.html` の番号は `tools/stamp.py` が書き写す。
+`index.html` の `<title>` にある `V4.xx`。`kaji.html`・`sew.html` の番号は `tools/stamp.py` が書き写す。
 画面の一番下と、対局の記録に出る。
 マージのたびに、PR を出す時にその PR の中で上げる。上げ方は PR の中で一番大きい変更の種類で決める。
 
