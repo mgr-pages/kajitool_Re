@@ -24,6 +24,7 @@ const DEF = {
   pen: null,         // 仕上げた時の誤差ごとの減点(集中力の単位)。null ならマス数と許容誤差から決める
   pen4: [0, 8, 20, 40, 60], pen6: [0, 4, 14, 26, 38], pen9: [0, 2, 9, 18, 28],
   r1: 20,            // 仕上げの表を使う上限(これより上は削りの直線)
+  r1N: null,         // マスの数ごとの r1 { 4: , 6: , 9: }(あれば r1 より先)
   regenRed: true,    // 再生布: 赤いマス(縫いすぎ)は、次の再生で戻る見込みで評価する
   regenRedMax: null, // そのマスが赤くなると赤いマスがこの数以上になる時は、赤いマスを戻る見込みで見ない(0 で使わない)。null ならマスの数ごとの regenRedMaxN
   regenRedMaxN: { 4: 3, 6: 2, 9: 3 },   // 2026-10-16、再生布・各10レシピ: 9マス 3(種1000で選び 種5000 z=3.00)・6マス 2(種1000 z=8.04・種5000 z=5.44)・4マス 3(種1000 z=2.29・種9000 z=2.32、+1pt 弱)
@@ -138,6 +139,8 @@ function boardEta(actions, cfg, prm){
 function prepare(recipe, cfg, params){
   const prm = Object.assign({}, DEF, params || {});
   const n = recipe.cells.length;
+  // マスの数ごとの r1(r1 を直接渡された時はそちらが先)
+  if(!(params && 'r1' in params) && prm.r1N && prm.r1N[n] !== undefined) prm.r1 = prm.r1N[n];
   const T = ((recipe.oldLimit && SEW.EVAL_OLD[n]) || SEW.EVAL[n]).star3;
   const pen = penaltyFor(n, T, prm);
   const fakeGame = { rows: recipe.rows, cols: recipe.cols, cellAt: {} };
