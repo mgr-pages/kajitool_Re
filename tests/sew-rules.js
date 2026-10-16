@@ -20,6 +20,12 @@ const path = require('path');
 const SEW = require(path.join(__dirname, '..', 'sew-engine.js'));
 const { SEW_RECIPES } = require(path.join(__dirname, '..', 'sew-recipes.js'));
 
+// 指紋は、照合した時(2026-10-14)のレシピ(番号 559 まで、529件)で作る。レシピを足したり数値を直したりしても
+// ルールの指紋が変わらないように(ルールのテストなので、入力のレシピは固定する)。
+// 2026-10-16 に直した烈風のブーツの左下(100)は、照合した時の値(110)で打つ。
+const RECIPES = SEW_RECIPES.filter(r => r.id <= 559).map(r => r.name !== '烈風のブーツ' ? r
+  : Object.assign({}, r, { cells: r.cells.map(c => c.r === 2 && c.c === 1 ? Object.assign({}, c, { base: 110 }) : c) }));
+
 const EXPECT = { ref: 'e8b39cb0', app: 'f159d6b3' };
 const GAMES = 3000;
 
@@ -34,7 +40,7 @@ function run(opts){
   const needles = Object.keys(SEW.NEEDLES);
   let h = undefined, stars = [0, 0, 0, 0, 0];
   for(let gi = 0; gi < GAMES; gi++){
-    const rec = pick(SEW_RECIPES);
+    const rec = pick(RECIPES);
     const cfg = { level: rnd() < 0.5 ? 70 + Math.floor(rnd() * 11) : 1 + Math.floor(rnd() * 80), needle: pick(needles), star: Math.floor(rnd() * 4), kotsu: rnd() < 0.5 };
     const rng = SEW.makeRng(Math.floor(rnd() * 4294967296));
     const g = SEW.newGame(rec, cfg, rng, opts);

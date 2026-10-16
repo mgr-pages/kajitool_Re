@@ -159,8 +159,10 @@ function turnReady(){
   return t && t.power && (!t.needRegen || t.regen) && (!t.needGlow || t.glow !== null);
 }
 // 入力がそろったらターンを始めて、推奨手を計算する
-function maybeStartTurn(){
+// 1手目は鍛冶と同じく「推奨手を計算」を押してから(force)。開始時の針の効果などを先に入れられるように
+function maybeStartTurn(force){
   if(S.phase !== 'turn' || !turnReady()){ renderAll(); save(); return; }
+  if(S.g.turn === 0 && force !== true){ renderAll(); save(); return; }
   const t = S.turnIn;
   SEW.startTurn(S.g, cfgOf(), { power: t.power, shiftCrit: t.shiftCrit,
     regen: t.regen, glow: t.glow === null ? -1 : t.glow });
@@ -724,7 +726,7 @@ function syncPrimary(){
     if(!t.power){ label = 'ぬいパワーを選ぶ'; run = openPower; }
     else if(t.needRegen && !t.regen){ label = '再生したマスをタップしてください'; }
     else if(t.needGlow && t.glow === null){ label = '光ったマスをタップしてください'; }
-    else { label = '推奨手を計算'; run = maybeStartTurn; }
+    else { label = '推奨手を計算'; run = () => maybeStartTurn(true); }
   } else if(S.phase === 'input'){
     if(S.midare){ label = '入力おわり'; run = midareDone; }
     else if(S.pend.length){ label = '結果を入力'; sub = `${cellName(S.pend[0].i)}` + (S.pend.length > 1 ? `・残り${S.pend.length}マス` : ''); run = () => openCell(S.pend[0].i); }
