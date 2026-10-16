@@ -27,25 +27,19 @@
    実装メモ: engine.js はブラウザと同じく通常のスクリプトとして読み込む
    (vm.runInThisContext)。vm.createContext の隔離環境ではグローバル変数の参照が
    極端に遅くなり、先読みが実用的な時間で終わらなかった。読み込みは1プロセス
-   1回に限られるので、子プロセスで読み込み、tools/pool.js の共通の並べ方で回す
-   (局を何局かずつの仕事に分け、重い順にコアの数で回す。子は使い回す)。
-   局の乱数は、種・素材・打ち方・局の番号だけで決める(局ごとに Math.random も種から作り直す)ので、
-   どう分けて、どの子で、どの順に回しても結果は同じ。全局の手順を局の順につないで指紋を作る。
+   1回に限られるので、素材×打ち方ごとに子プロセスを立て、並列に走らせる。
    ===================================================================== */
 'use strict';
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const vm = require('vm');
-const { runPool, chunks, procs } = require('../tools/pool.js');
+const { fork } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const BASELINE = path.join(__dirname, 'baseline.json');
 // 基準の条件。変えると基準と比べられなくなるので、変えたら --update する。
-// rng: 局の乱数の作り方(局ごと = 種・素材・打ち方・局の番号から作る。2026-10-16 に、1本の乱数を順に使う形から替えた)
-const DEFAULT = { games: 300, mc: 2, presets: ['kagayaki', 'amatsuyu', 'hidane', 'bloom', 'kimonsho', 'yumon', 'orb', 'kajihammer', 'maoulamp'], seed: 20260926, rng: '局ごと' };
-// 1つの仕事の局数(貪欲)。先読みは1局ずつ。環境変数 POOL_CHUNK で変えられる(結果は変わらない)
-const GREEDY_CHUNK = 50;
+const DEFAULT = { games: 300, mc: 2, presets: ['kagayaki', 'amatsuyu', 'hidane', 'bloom', 'kimonsho', 'yumon', 'orb', 'kajihammer', 'maoulamp'], seed: 20260926 };
 const NAMES = { kagayaki: '超かがやきの樹液', amatsuyu: '超あまつゆのいと', hidane: '超ようせいのひだね', bloom: 'ブルームシールド', kimonsho: '輝紋章の盾', yumon: '幽紋刀', orb: '虹色のオーブ', kajihammer: '光の鍛冶ハンマー', maoulamp: 'まおうの錬金ランプ' };
 
 // 32bit FNV-1a。全対局の手順から作る指紋。エンジンの挙動が1手でも変われば値が変わる。
@@ -64,23 +58,16 @@ function seeded(a){
   };
 }
 
-/* ===================== 子プロセス側(tools/pool.js から require される) ===================== */
-let ENGINE = null;
-function engine(){
-  if(ENGINE) return ENGINE;
-  // 読み込みの間に素の乱数が使われても揺れないよう、読み込み前に種を固定する(局ごとにも作り直す)
-  Math.random = seeded(DEFAULT.seed ^ 0x2545f491);
+/* ===================== 子プロセス側 ===================== */
+function workerMain(task){
+  // エンジンのどこかで素の乱数が使われても結果が揺れないよう、読み込み前に種を固定する
+  Math.random = seeded(task.seed ^ 0x2545f491);
   vm.runInThisContext(fs.readFileSync(path.join(ROOT, 'engine.js'), 'utf8'), { filename: 'engine.js' });
   const E = code => vm.runInThisContext(code);
   E('LDP_CACHE_MAX = LDP_CACHE_TEST_MB * 1048576;');   // 検証では総当たりの表を捨てずに使い回す(速さだけが変わる)
-  return (ENGINE = E);
+  if(task.kind === 'power') return checkPowerTable(E);
+  return runGames(E, task);
 }
-function run(job){
-  const E = engine();
-  if(job.kind === 'power') return checkPowerTable(E);
-  return runGames(E, job);
-}
-module.exports = { run };
 
 // 威力の計算式(getRollCandidates)と実測表の照合
 function checkPowerTable(E){
@@ -177,40 +164,25 @@ async function playGame(E, preset, rng, useMC){
            moves: trace.length, focusLeft: G.focus, trace: trace.join(' ') };
 }
 
-// 局 g の種(種・素材・打ち方・局の番号だけで決まる)
-function gameSeed(job, g){
-  return (job.seed ^ fnv(job.preset) ^ (job.mode === 'mc' ? 0x5a5a : 0) ^ Math.imul(g + 1, 0x9E3779B1)) | 0;
-}
-// 局 from〜to-1 を打ち、局ごとの結果を返す(まとめは親で行う)
-async function runGames(E, job){
-  const useMC = job.mode === 'mc', out = [];
-  for(let g = job.from; g < job.to; g++){
-    const sd = gameSeed(job, g), t0 = Date.now();
-    // 先読みの外で使われる素の乱数も、局ごとに種から作り直す(前の局や、同じ子が前に回した仕事に左右されないように)
-    Math.random = seeded(sd ^ 0x2545f491);
-    E('MC_RNG = Math.random;');
-    const r = await playGame(E, job.preset, seeded(sd), useMC);
-    r.sec = (Date.now() - t0) / 1000;
-    out.push(r);
-  }
-  return out;
-}
-// 局ごとの結果(局の順)をまとめる。指紋は全局の手順を局の順につないで作る
-function summarize(list){
-  let great = 0, unreached = 0, over = 0, errSum = 0, moveSum = 0, focusSum = 0, sec = 0, h;
-  for(const r of list){
+async function runGames(E, task){
+  const useMC = task.mode === 'mc';
+  const rng = seeded(task.seed ^ fnv(task.preset) ^ (useMC ? 0x5a5a : 0));
+  let great = 0, unreached = 0, over = 0, errSum = 0, moveSum = 0, focusSum = 0, h;
+  const t0 = Date.now();
+  for(let g = 0; g < task.games; g++){
+    const r = await playGame(E, task.preset, rng, useMC);
     if(r.great) great++;
     if(!r.reached) unreached++;
     if(r.over) over++;
-    errSum += r.err; moveSum += r.moves; focusSum += r.focusLeft; sec += r.sec;
+    errSum += r.err; moveSum += r.moves; focusSum += r.focusLeft;
     h = fnv(r.trace + '|', h);
   }
-  const n = list.length, pct = x => Math.round(x / n * 1000) / 10;
+  const n = task.games, pct = x => Math.round(x / n * 1000) / 10;
   return { games: n, great: pct(great), unreached: pct(unreached), over: pct(over),
            avgErr: Math.round(errSum / n * 100) / 100, avgMoves: Math.round(moveSum / n * 10) / 10,
            avgFocusLeft: Math.round(focusSum / n * 10) / 10,
            fingerprint: ((h === undefined ? 0 : h) >>> 0).toString(16).padStart(8, '0'),
-           sec: Math.round(sec * 10) / 10 };
+           sec: Math.round((Date.now() - t0) / 100) / 10 };
 }
 
 /* ===================== 親プロセス側 ===================== */
@@ -232,6 +204,29 @@ function parseArgs(argv){
   return o;
 }
 
+function runTask(task){
+  return new Promise((resolve, reject) => {
+    const cp = fork(__filename, ['--worker', JSON.stringify(task)]);
+    let got = null;
+    cp.on('message', m => { got = m; });
+    cp.on('error', reject);
+    cp.on('exit', code => code === 0 && got ? resolve(got) : reject(new Error(`子プロセスが異常終了しました(${code})`)));
+  });
+}
+async function runPool(tasks, limit){
+  const out = new Array(tasks.length);
+  let next = 0;
+  const lane = async () => {
+    while(next < tasks.length){
+      const k = next++;
+      out[k] = await runTask(tasks[k]);
+      const t = tasks[k];
+      if(t.kind === 'games') process.stderr.write(`  済: ${NAMES[t.preset]} ${t.mode === 'mc' ? '先読み' : '貪欲'}\n`);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, lane));
+  return out;
+}
 
 function line(name, mode, r){
   return `${name.padEnd(10, '　')} ${mode} ${String(r.games).padStart(5)}局  大成功 ${String(r.great).padStart(5)}%  `
@@ -246,31 +241,19 @@ async function main(){
                 presets: a.presets ?? DEFAULT.presets, seed: DEFAULT.seed };
   for(const p of cfg.presets) if(!NAMES[p]){ console.error('不明な素材: ' + p + '(' + Object.keys(NAMES).join(', ') + ')'); process.exit(2); }
 
-  // 仕事: 威力の照合1つと、素材×打ち方の局を分けたもの(先読みは1局ずつ、貪欲は GREEDY_CHUNK 局ずつ)。
-  // 重い順に回す(重さは前に回した時の秒数。初めての時は先読みを先にする目安の cost)
-  const jobs = [{ kind: 'power', key: 'power', cost: 1 }];
-  const groups = [];
-  const add = (p, mode, n, size, cost) => {
-    const gr = { preset: p, mode, jobs: [] }; groups.push(gr);
-    for(const [from, to] of chunks(n, size)){
-      gr.jobs.push(jobs.length);
-      jobs.push({ kind: 'games', preset: p, mode, seed: cfg.seed, from, to, key: [cfg.seed, p, mode, from, to].join('|'), cost: cost * (to - from) });
-    }
-  };
-  const chunk = Number(process.env.POOL_CHUNK) || 0;
-  if(cfg.mc > 0) for(const p of cfg.presets) add(p, 'mc', cfg.mc, chunk || 1, 60);
-  if(cfg.games > 0) for(const p of cfg.presets) add(p, 'greedy', cfg.games, chunk || GREEDY_CHUNK, 0.05);
+  // 先読みは時間がかかるので先に投入し、貪欲は空いた枠で回す
+  const tasks = [{ kind: 'power', seed: cfg.seed }];
+  if(cfg.mc > 0) for(const p of cfg.presets) tasks.push({ kind: 'games', preset: p, mode: 'mc', games: cfg.mc, seed: cfg.seed });
+  if(cfg.games > 0) for(const p of cfg.presets) tasks.push({ kind: 'games', preset: p, mode: 'greedy', games: cfg.games, seed: cfg.seed });
   const t0 = Date.now();
-  process.stderr.write(`実行中(${jobs.length}個の仕事を最大${Math.min(procs(), jobs.length)}並列)…\n`);
-  const left = groups.map(gr => gr.jobs.length);
-  const res = await runPool(jobs, { worker: __filename, label: 'sim', onDone: (j, r, k) => {
-    const gi = groups.findIndex(gr => gr.jobs.includes(k));
-    if(gi >= 0 && --left[gi] === 0) process.stderr.write(`  済: ${NAMES[groups[gi].preset]} ${groups[gi].mode === 'mc' ? '先読み' : '貪欲'}\n`);
-  } });
+  process.stderr.write(`実行中(${tasks.length - 1}組を最大${os.cpus().length}並列)…\n`);
+  const res = await runPool(tasks, os.cpus().length);
 
   const result = { config: cfg, powerTable: res[0], results: {} };
-  for(const gr of groups)
-    (result.results[gr.preset] = result.results[gr.preset] || {})[gr.mode] = summarize([].concat(...gr.jobs.map(k => res[k])));
+  tasks.forEach((t, k) => {
+    if(t.kind !== 'games') return;
+    (result.results[t.preset] = result.results[t.preset] || {})[t.mode] = res[k];
+  });
 
   const pt = result.powerTable;
   console.log(`威力の計算式と実測表の照合: ${pt.points}点中 ${pt.points - pt.mismatches.length}点一致`);
@@ -309,6 +292,10 @@ async function main(){
   return 1;
 }
 
-if(require.main === module){
+if(process.argv[2] === '--worker'){
+  Promise.resolve(workerMain(JSON.parse(process.argv[3])))
+    .then(r => process.send(r, () => process.exit(0)))
+    .catch(e => { console.error(e); process.exit(1); });
+} else {
   main().then(code => process.exit(code)).catch(e => { console.error(e); process.exit(1); });
 }
