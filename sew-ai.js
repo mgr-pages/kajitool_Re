@@ -138,8 +138,13 @@ function boardEta(actions, cfg, prm){
 }
 
 /* ---- レシピと設定ごとの準備 ---- */
+// 設定の組(パターン)と、レシピごとの割り当て(鍛冶の ITEM_PARAMS・ITEM_PARAM_OF と同じ形)。
+// 組は DEF の上に重ね、prepare に渡した設定(試験の A・B など)がさらにその上に来る。
+// 割り当ては、全レシピに組を当てて比べ、別の種で確かめてから書く(利用者 2026-10-16)
+const PARAM_SETS = {};
+const PARAM_OF = {};            // レシピ名 → 組の名前
 function prepare(recipe, cfg, params){
-  const prm = Object.assign({}, DEF, params || {});
+  const prm = Object.assign({}, DEF, PARAM_SETS[PARAM_OF[recipe.name]] || {}, params || {});
   const n = recipe.cells.length;
   // マスの数ごとの r1(r1 を直接渡された時はそちらが先)
   if(!(params && 'r1' in params) && prm.r1N && prm.r1N[n] !== undefined) prm.r1 = prm.r1N[n];
@@ -812,7 +817,7 @@ function playGame(recipe, cfg, seed, ctx, opts){
   return { star: j.star, total: j.total, focus: g.focus, turns: g.turn };
 }
 
-const SEW_AI = { DEF, prepare, choose, chooseMC, bestAction, evalAction, playGame, finishTable, rollout, candidates };
+const SEW_AI = { DEF, PARAM_SETS, PARAM_OF, prepare, choose, chooseMC, bestAction, evalAction, playGame, finishTable, rollout, candidates };
 root.SEW_AI = SEW_AI;
 if(typeof module !== 'undefined' && module.exports) module.exports = SEW_AI;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
