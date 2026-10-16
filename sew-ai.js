@@ -642,7 +642,7 @@ function choosePlain(g, cfg, ctx){
   if(allYellow && j.total <= ctx.T) return { finish: true, why: '★3の範囲' };
   if(g.focus < 5) return { finish: true, why: '集中力切れ' };
   // 必殺がたまっていれば、すぐ無我の境地(この後ずっと会心率2倍・消費0。弱い・普通のターンまで待つより★3 が多い。引き継ぎ資料の 9-4)
-  if(g.hsCharged && !g.hsUsed && cfg.level >= SEW.SKILL.muga.lv) return { skill: 'muga', why: 'この後ずっと会心率2倍(消費0)' };
+  if(g.hsCharged && !g.hsUsed && cfg.level >= SEW.SKILL.muga.lv) return { skill: 'muga', why: 'この後ずっと会心率2倍' };
   if(ctx.prm.endOn && g.base.every((b, i) => Math.abs(b - g.cum[i]) <= ctx.prm.endR)){
     const m = ctx.prm.endMC && !ctx._roll ? chooseEndMC(g, cfg, ctx) : chooseEnd(g, cfg, ctx);
     if(m){ m.end = true; return m; }
