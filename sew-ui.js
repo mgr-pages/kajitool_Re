@@ -175,11 +175,6 @@ function calcRec(){
   S.rec = null; renderAll();
   const g = S.g, my = ++CALC_SEQ;
   setBusy(true);
-  // 必殺がたまっている時: すぐ使う(弱い・普通のターンまで待つより★3 が多い。引き継ぎ資料の 9-4 の必殺)
-  if(g.hsCharged && !g.hsUsed && S.level >= SEW.SKILL.muga.lv){
-    S.rec = { skill: 'muga', why: 'この後ずっと会心率2倍(消費0)' };
-    setBusy(false); renderAll(); save(); return;
-  }
   AI.choose(g, cfgOf()).then(m => {
     if(my !== CALC_SEQ) return;
     S.rec = m; setBusy(false); renderAll(); save();
