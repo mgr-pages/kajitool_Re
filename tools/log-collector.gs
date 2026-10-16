@@ -1,5 +1,8 @@
 /* =====================================================================
-   鍛冶アドバイザーの対局の記録を受け取る Google Apps Script。
+   職人アドバイザーの対局の記録を受け取る Google Apps Script。
+   鍛冶の記録は「記録」シート、裁縫の記録(craft: 'sew')は「記録(裁縫)」シートに書く。
+   (この版を出し直す前は、裁縫の記録も「記録」シートの鍛冶の列に入る。素材 = レシピ・地金特性 = 布・ハンマー = 針。
+    会心率の集計には数えられない)
    使い方(docs/記録の集め方.md に手順):
      1. Google スプレッドシートを新しく作り、[拡張機能] → [Apps Script] を開く
      2. このファイルの中身を貼り付けて保存する
@@ -24,6 +27,20 @@ const HEAD = ['受け取った日時', '記録の番号', '端末の番号(匿�
               '最後の値(使うマス)', '手数(打った回数)', '取り消し', '始めた日時', '終えた日時', '手順(JSON)',
               'ブラウザ', 'OS'];
 
+// 裁縫の記録(アプリが craft: 'sew' を付けて送る)は、別のシートに書く
+const SEW_SHEET = '記録(裁縫)';
+const SEW_HEAD = ['受け取った日時', '記録の番号', '端末の番号(匿名)', '版', 'レシピ', 'レシピの番号', '布', '職人Lv',
+                  'さいほう針', 'できのよさ', 'コツ', '★3の上限', '結果', '全マス黄色', '残り集中力', '終えたターン',
+                  '最後の残り', '手数(使った手)', '取り消し', '始めた日時', '終えた日時', '手順(JSON)', 'ブラウザ', 'OS'];
+function sewRow_(d){
+  const steps = Array.isArray(d.steps) ? d.steps : [];
+  const fin = d.final || {};
+  return [new Date(), d.id, d.device, d.version, d.preset, d.recipeId, d.trait, d.level, d.hammer, d.star,
+          d.kotsu ? 'あり' : 'なし', d.threshold, d.outcome, d.reached, fin.focus, fin.temp, (fin.masses || []).join(' / '),
+          steps.filter(s => s.t === 'move').length, steps.filter(s => s.t === 'undo').length,
+          d.started, d.finished, JSON.stringify({ steps }), (d.env || {}).browser || '', (d.env || {}).os || ''];
+}
+
 function doPost(e){
   // エディタの[実行]で doPost を選んで押すと、送られた中身(e)が無い。止まらずに、試す時は testPost を使うよう知らせる
   if(!e || !e.postData || !e.postData.contents){
@@ -35,6 +52,13 @@ function doPost(e){
   try{
     const d = JSON.parse(e.postData.contents);
     const ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+    if(d.craft === 'sew'){
+      let ws = ss.getSheetByName(SEW_SHEET);
+      if(!ws){ ws = ss.insertSheet(SEW_SHEET); ws.appendRow(SEW_HEAD); ws.setFrozenRows(1); }
+      else if(ws.getLastColumn() < SEW_HEAD.length) ws.getRange(1, 1, 1, SEW_HEAD.length).setValues([SEW_HEAD]);
+      ws.appendRow(sewRow_(d));
+      return ContentService.createTextOutput('ok');
+    }
     let sh = ss.getSheetByName(SHEET);
     if(!sh){ sh = ss.insertSheet(SHEET); sh.appendRow(HEAD); sh.setFrozenRows(1); }
     // 列を足した版に入れ替えた時は、見出しの行も足りない分を書き直す(これまでの行の並びは変えない)

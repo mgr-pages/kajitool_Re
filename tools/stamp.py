@@ -16,7 +16,7 @@ import hashlib, pathlib, re
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 # 配布するファイル(どれか1つでも変われば印が変わる)。無いファイルは飛ばす(作っている途中のため)
 ASSETS = ['style.css', 'engine.js', 'mc-pool.js', 'mc-worker.js', 'gamelog.js', 'ui.js', 'bg-motif.svg',
-          'top.js', 'bg-motif-sew.svg', 'sew.css', 'sew-recipes.js', 'sew-engine.js', 'sew-ai.js', 'sew-ui.js']
+          'top.js', 'bg-motif-sew.svg', 'sew.css', 'sew-recipes.js', 'sew-engine.js', 'sew-ai.js', 'sew-ui.js', 'sew-worker.js']
 PAGES = ['index.html', 'kaji.html', 'sew.html']
 VER_RE = r'V\d+\.\d+'
 

@@ -183,7 +183,11 @@ function beginTurn(g, cfg, rng){
   if(g.started || g.finished) return ev;
   let p, drawn = null, sc = false;
   if(g.lockRem > 0 && g.lockedPower){ p = g.lockedPower; sc = g.lockedShift; }
-  else if(g.forced){ p = g.forced; g.forced = null; sc = p === 'critx2'; }
+  else if(g.forced){
+    p = g.forced; g.forced = null;
+    if(p === 'unknown'){ const o = POWER5.filter(x => x !== g.power); p = o[rng.nextInt(o.length)]; }   // 画面で入れた局面からの試し打ち
+    sc = p === 'critx2';
+  }
   else {
     p = g.cycle.length ? g.cycle[g.cycleIdx] : 'normal';
     if(p === 'unknown'){ p = POWER5[rng.nextInt(POWER5.length)]; drawn = p; }
@@ -335,10 +339,97 @@ function judge(g){
   return { star, total, raw };
 }
 
+/* ---- 画面用: 乱数を使わず、ゲームで起きたことを入れて進める(sew-ui.js) ----
+   1ターン = startTurn(ターンの始めに起きたこと)→ applyMove(使った手と、縫った後の残り)。
+   進み方(精神統一・シフト・順番・消費・布の特性)は beginTurn・act と同じ。tests/sew-play.js で突き合わせている。 */
+// シフトの行き先が画面では分からないので、シフトの後はこの印にして、次のターンの始めに選んでもらう
+const FORCED_UNKNOWN = 'unknown';
+// 次のターンのぬいパワーが決まっていれば { power, shiftCrit }。「？」・シフトの後なら null
+function expectedPower(g){
+  if(g.lockRem > 0 && g.lockedPower) return { power: g.lockedPower, shiftCrit: g.lockedShift };
+  if(g.forced) return g.forced === FORCED_UNKNOWN ? null : { power: g.forced, shiftCrit: g.forced === 'critx2' };
+  const p = g.cycle.length ? g.cycle[g.cycleIdx] : 'normal';
+  return p === 'unknown' ? null : { power: p, shiftCrit: false };
+}
+// 再生布で戻るマスの候補: 黄色でないマスのうち「縫った量 ÷ 基準値」が一番大きいマス(同じなら全部)
+function regenCandidates(g){
+  const cand = [];
+  for(let i = 0; i < g.n; i++) if(Math.abs(g.base[i] - g.cum[i]) > P.yellow) cand.push(i);
+  if(!cand.length) return [];
+  let best = -Infinity;
+  for(const i of cand){ const q = g.cum[i] / g.base[i]; if(q > best) best = q; }
+  return cand.filter(i => g.cum[i] / g.base[i] === best);
+}
+// ターンの始め。info: { power: このターンの強さ, shiftCrit: シフトで出た会心×２か,
+//                       regen: { cell, remain }(再生したマスと、再生の後の残り)| null, glow: 光ったマス | -1,
+//                       recover: 集中力が回復したか }
+function startTurn(g, cfg, info){
+  if(g.started || g.finished) return;
+  if(!(g.lockRem > 0 && g.lockedPower) && g.forced) g.forced = null;
+  const p = info.power;
+  if(!POWER5.includes(p)) throw new Error('ぬいパワーが不明: ' + p);
+  g.power = p; g.shiftCrit = p === 'critx2' && !!info.shiftCrit; g.randomCrit = p === 'critx2' && !g.shiftCrit;
+  const t = g.turn + 1;
+  g.glow = -1;
+  if(isTraitTurn(t)){
+    if(g.cloth === 'light' && info.glow !== undefined && info.glow >= 0 && info.glow < g.n) g.glow = info.glow;
+    if(g.cloth === 'regen' && info.regen){
+      const i = info.regen.cell;
+      g.cum[i] = Math.max(0, Math.min(P.maxCum, g.base[i] - info.regen.remain));
+    }
+  }
+  if(info.recover && !g.recoverUsed){ g.focus += P.recover.amount; g.recoverUsed = true; }
+  g.started = true;
+}
+// 手を使った。obs.remains: { マスの番号: 縫った後の残り }(当たったマスの分。みだれぬいは値が変わったマスの分)
+function applyMove(g, move, cfg, obs){
+  if(!g.started || g.finished) return { ok: false };
+  if(move.finish){ g.finished = true; return { ok: true, judge: judge(g) }; }
+  const sk = SKILL[move.skill];
+  if(!sk) throw new Error('不明な特技: ' + move.skill);
+  const cost = costOf(g, sk);
+  if(cost > g.focus) return { ok: false };
+  const rem = (obs && obs.remains) || {};
+  let dmg = 0;
+  const setRem = i => {
+    g.shitsuke[i] = false;
+    if(rem[i] === undefined) return;
+    const c = Math.max(0, Math.min(P.maxCum, g.base[i] - rem[i]));
+    dmg += Math.max(0, c - g.cum[i]);
+    g.cum[i] = c;
+  };
+  if(sk.kind === 'sew'){
+    const tg = targetsOf(g, sk, move.anchor);
+    if(!tg.length) return { ok: false };
+    for(const [i] of tg) setRem(i);
+  } else if(sk.kind === 'midare'){
+    for(const k of Object.keys(rem)) setRem(+k);
+  } else if(sk.kind === 'hogushi'){
+    const i = g.cellAt[move.anchor.r * 8 + move.anchor.c];
+    if(i === undefined) return { ok: false };
+    setRem(i);
+  } else if(sk.kind === 'lock'){
+    g.lockedPower = g.power; g.lockedShift = g.shiftCrit; g.lockRem = 3 + 1;
+  } else if(sk.kind === 'shift'){
+    g.forced = FORCED_UNKNOWN;
+  } else if(sk.kind === 'shitsuke'){
+    const i = g.cellAt[move.anchor.r * 8 + move.anchor.c];
+    if(i === undefined) return { ok: false };
+    g.shitsuke[i] = true;
+  } else if(sk.kind === 'muga'){
+    if(!g.hsCharged || g.hsUsed) return { ok: false };
+    g.muga = true; g.hsUsed = true; g.hsCharged = false;
+  }
+  g.focus -= cost;
+  endTurn(g, cfg, null, dmg, []);
+  return { ok: true };
+}
+
 const SEW = {
   P, POWER, POWER5, POWER_JA, NEEDLES, FOCUS_BASE, SKILLS, SKILL, PATTERNS, EVAL, EVAL_OLD,
   makeRng, clampAnchor, targetsOf, newGame, cloneGame, beginTurn, act, costOf, critRate, rollValue, judge, cellError,
   isTraitTurn, rainbowMode,
+  expectedPower, regenCandidates, startTurn, applyMove, FORCED_UNKNOWN,
 };
 root.SEW = SEW;
 if(typeof module !== 'undefined' && module.exports) module.exports = SEW;

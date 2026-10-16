@@ -39,6 +39,10 @@ const DEF = {
                      // 9マスだけ(2026-10-14: 再生布の9マス4レシピで、種5000 z=6.72・種9000 z=5.91。4・6マスは差が出ず)
   endMulti: false,   // 終盤に複数マスに当たる手も見る
   regenFast: true,   // 再生の前の手の評価を、前もって作った合成で速く行う(false は戻る量ごとに作り直す。遅い)
+  endMC: null,       // 終盤の際どい判断の試し打ち { K: 候補の数, R: 本数, z: 乗り換えの基準, lo, hi: 見込みの範囲, gap: 候補にする見込みの差, seed }。
+                     // 画面(sew-ui.js の SEW_AI_PARAMS)では { K:3, R:32, z:2, lo:0.02, hi:0.98, gap:0.1, seed:1 } を使う
+                     // (2026-10-16、代表9レシピ・各300局: 種1000 72.5% → 74.3%(z=4.72)・種5000 72.9% → 74.7%(z=4.46))。
+                     // 試験の道具では遅くなるので、ふだんは使わない
   endMinP: 0.002,    // 終盤の評価で、どの手でも★3の確率がこれ未満なら、ふだんの選び方に戻す
   endTieW: 0.01,     // 終盤の手選びで、集中力を endTieMul 倍に減らした時の★3の確率を、この重みで足す。
   endTieMul: 0.6,    // 集中力が多いと確率がどの手でも1に張り付き、並び順で集中力を無駄にする手が選ばれていたので、その同点を崩す
@@ -599,7 +603,7 @@ function choose(g, cfg, ctx){
   if(allYellow && j.total <= ctx.T) return { finish: true, why: '★3の範囲' };
   if(g.focus < 5) return { finish: true, why: '集中力切れ' };
   if(ctx.prm.endOn && g.base.every((b, i) => Math.abs(b - g.cum[i]) <= ctx.prm.endR)){
-    const m = chooseEnd(g, cfg, ctx);
+    const m = ctx.prm.endMC && !ctx._roll ? chooseEndMC(g, cfg, ctx) : chooseEnd(g, cfg, ctx);
     if(m) return m;
   }
   const best = bestAction(g, cfg, ctx);
@@ -643,6 +647,37 @@ function candidates(g, cfg, ctx, K){
   scored.sort((x, y) => y.net - x.net);
   for(const e of scored){ if(out.length >= K) break; push({ skill: e.a.skill, anchor: e.a.anchor }); }
   return out.slice(0, K);
+}
+// 終盤の際どい判断だけ試し打ちで確かめる。上位の手の見込みが近い時に、候補ごとに同じ種で R 本打ち切り、
+// ふだんの手より片方だけ★3 の局の差で z 以上はっきり良い時だけ乗り換える
+function chooseEndMC(g, cfg, ctx){
+  const P = ctx.prm.endMC;
+  const L = chooseEnd(g, cfg, ctx, true);
+  if(!L.length) return null;
+  const base = L[0];
+  if(!isFinite(base.pStar3)) return base;
+  if(base.pStar3 < ctx.prm.endMinP) return null;
+  const cands = [base];
+  for(const m of L.slice(1)){
+    if(cands.length >= P.K) break;
+    if(!isFinite(m.pStar3) || m.pStar3 < P.lo) continue;
+    if(base.pStar3 - m.pStar3 > P.gap) break;
+    cands.push(m);
+  }
+  if(cands.length < 2 || base.pStar3 > P.hi) return base;
+  let h = (P.seed + g.turn * 7919 + g.focus * 104729) >>> 0;
+  for(let i = 0; i < g.n; i++) h = (Math.imul(h ^ (g.cum[i] + 1000), 2654435761) + i) >>> 0;
+  ctx._roll = true;
+  const res = cands.map(c => { const r = []; for(let j = 0; j < P.R; j++) r.push(rollout(g, cfg, ctx, c, (h + j * 9973) >>> 0)); return r; });
+  ctx._roll = false;
+  let best = base, bestZ = -Infinity;
+  for(let k = 1; k < cands.length; k++){
+    let a = 0, b = 0;
+    for(let j = 0; j < P.R; j++){ if(res[k][j] && !res[0][j]) a++; if(res[0][j] && !res[k][j]) b++; }
+    const z = a + b ? (a - b) / Math.sqrt(a + b) : 0;
+    if(z >= P.z && z > bestZ){ bestZ = z; best = cands[k]; }
+  }
+  return best;
 }
 function rollout(g, cfg, ctx, first, seed, opts){
   const rng = SEW.makeRng(seed);
