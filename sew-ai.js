@@ -694,6 +694,7 @@ function chooseBulkMC(g, cfg, ctx, base, P){
 // 候補(先頭がふだんの手)ごとに同じ種で P.R 本ずつ最後まで打ち切り、ふだんの手より「片方だけ★3」の本数の差で
 // z ≥ P.z はっきり良い手があれば、その手に乗り換える。種は局面と P.seed から作る(同じ局面では同じ手)
 function mcCompare(g, cfg, ctx, cands, P){
+  if(P.batch) return mcRace(g, cfg, ctx, cands, P);
   const base = cands[0];
   let h = (P.seed + g.turn * 7919 + g.focus * 104729) >>> 0;
   for(let i = 0; i < g.n; i++) h = (Math.imul(h ^ (g.cum[i] + 1000), 2654435761) + i) >>> 0;
@@ -713,6 +714,45 @@ function mcCompare(g, cfg, ctx, cands, P){
   for(let k = 1; k < cands.length; k++){
     let a = 0, b = 0;
     for(let j = 0; j < R; j++){ if(res[k][j] && !res[0][j]) a++; if(res[0][j] && !res[k][j]) b++; }
+    const z = a + b ? (a - b) / Math.sqrt(a + b) : 0;
+    if(z >= P.z && z > bestZ){ bestZ = z; best = cands[k]; }
+  }
+  return best;
+}
+// mcCompare の打ち切りあり版(P.batch 本ずつ回す)。そのつど、ふだんの手との「片方だけ★3」を数え、
+// 残りの本数を全部勝っても z ≥ P.z に届かない候補と、z ≤ −P.drop のはっきり悪い候補は、そこで打ち切る。
+// 乗り換えは、打ち切られずに残った候補を、最後まで回した本数で z ≥ P.z の時だけ(基準は打ち切りなしと同じ)
+function mcRace(g, cfg, ctx, cands, P){
+  const base = cands[0];
+  let h = (P.seed + g.turn * 7919 + g.focus * 104729) >>> 0;
+  for(let i = 0; i < g.n; i++) h = (Math.imul(h ^ (g.cum[i] + 1000), 2654435761) + i) >>> 0;
+  const t0 = P.ms ? Date.now() : 0;
+  const res = cands.map(() => []);
+  let alive = cands.map((c, k) => k).slice(1);
+  const dz = (k, n) => { let a = 0, b = 0; for(let j = 0; j < n; j++){ if(res[k][j] && !res[0][j]) a++; if(res[0][j] && !res[k][j]) b++; } return [a, b]; };
+  let n = 0;
+  ctx._roll = true;
+  while(n < P.R && alive.length){
+    const to = Math.min(P.R, n + P.batch);
+    for(let j = n; j < to; j++){
+      const sd = (h + j * 9973) >>> 0;
+      res[0].push(rollout(g, cfg, ctx, base, sd));
+      for(const k of alive) res[k].push(rollout(g, cfg, ctx, cands[k], sd));
+    }
+    n = to;
+    const rest = P.R - n;
+    alive = alive.filter(k => {
+      const [a, b] = dz(k, n);
+      const zNow = a + b ? (a - b) / Math.sqrt(a + b) : 0;
+      const zMax = (a + rest + b) ? (a + rest - b) / Math.sqrt(a + rest + b) : 0;
+      return zMax >= P.z && zNow > -(P.drop || 1.5);
+    });
+    if(P.ms && Date.now() - t0 > P.ms) break;
+  }
+  ctx._roll = false;
+  let best = base, bestZ = -Infinity;
+  for(const k of alive){
+    const [a, b] = dz(k, n);
     const z = a + b ? (a - b) / Math.sqrt(a + b) : 0;
     if(z >= P.z && z > bestZ){ bestZ = z; best = cands[k]; }
   }
