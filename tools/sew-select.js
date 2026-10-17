@@ -7,10 +7,12 @@
        - 残りの局を全部勝っても z = (b − a) / √(a + b) が zSel に届かない組
          (組だけ★3 になれるのは、ふだんが★3 でない局だけなので、残りでふだんが失敗しそうな数を上限にする)
        - z ≤ drop のはっきり悪い組
+       - 今の z のまま最後まで打った時の見込み z × √(最後の局数 / 今の局数) が fut(既定 1.0)に届かない組
+         (選ぶ段階なので少しの取りこぼしは許す。選んだ組は別の種で確かめる)
      残った組が無いレシピは、そこで打つのをやめる。
    ・最後まで残って z ≥ zSel の組のうち、z が一番大きい組をそのレシピに選ぶ(選んだ種では甘く出るので、別の種で確かめること)。
    使い方: node tools/sew-select.js 組.json [レシピ名,…|代表|all|一覧のファイル] [局数] [種] '<条件の JSON>'
-     組.json: { "名前": { 設定 }, … }。条件: { needle, hs(打っている途中の必殺のチャージ), round, zSel, drop, out(結果の JSON) }
+     組.json: { "名前": { 設定 }, … }。条件: { needle, hs(打っている途中の必殺のチャージ), round, zSel, drop, fut, out(結果の JSON) }
    ===================================================================== */
 'use strict';
 const fs = require('fs'), path = require('path');
@@ -34,6 +36,8 @@ async function main(){
   const names = spec && fs.existsSync(spec) ? fs.readFileSync(spec, 'utf8').trim().split(',') : recipeNames(spec || 'all');
   const N = +(nA || 200), seed = +(seedA || 1000), C = JSON.parse(condA || '{}');
   const round = C.round || 50, zSel = C.zSel || 2, drop = C.drop === undefined ? -1.5 : C.drop;
+  // fut: 今の z のまま最後まで打った時の見込み(z × √(最後の局数 / 今の局数))がこれに届かない組も打ち切る(null で使わない)
+  const fut = C.fut === undefined ? 1.0 : C.fut;
   const st = {};
   for(const nm of names) st[nm] = { n: 0, base: 0, baseFail: 0, trace: [], v: sets.map(() => ({ a: 0, b: 0, s: 0, same: true, live: true, why: '' })) };
   let played = 0, full = names.length * N * (sets.length + 1);
@@ -65,6 +69,7 @@ async function main(){
         if(x.same && rest > 0){ x.live = false; x.why = '打ち方が同じ'; }
         else if(zMax < zSel){ x.live = false; x.why = '届かない'; }
         else if(zNow <= drop){ x.live = false; x.why = 'はっきり悪い'; }
+        else if(fut !== null && rest > 0 && zNow * Math.sqrt(N / o.n) < fut){ x.live = false; x.why = '見込みが低い'; }
       });
     }
     process.stderr.write(`  局 ${to}/${N}: 残りのレシピ ${names.filter(nm => st[nm].v.some(x => x.live)).length}・打った局 ${played}(打ち切りなしなら ${full})\n`);

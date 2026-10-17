@@ -33,7 +33,6 @@ const DEF = {
   regenRedMax: null, // そのマスが赤くなると赤いマスがこの数以上になる時は、赤いマスを戻る見込みで見ない(0 で使わない)。null ならマスの数ごとの regenRedMaxN
   regenRedMaxN: { 4: 3, 6: 2, 9: 3 },   // 2026-10-16、再生布・各10レシピ: 9マス 3(種1000で選び 種5000 z=3.00)・6マス 2(種1000 z=8.04・種5000 z=5.44)・4マス 3(種1000 z=2.29・種9000 z=2.32、+1pt 弱)
   endR: 30,          // 全マスの残りがこの範囲(-endR〜endR)に入ったら終盤の評価に切り替える
-  endRBy: null,      // 布とマスの数ごとの endR { 'normal9': 20, 'normal': 20, … }(布+マスの数 → 布 の順に探す。endR を直接渡された時はそちらが先)
   endOver: 2,        // 終盤の表で、1手あたりに割り振る精神統一の消費
   endStep: 4,        // 終盤の盤の値で、集中力を何刻みで割り振るか
   qFmax: 320,
@@ -146,16 +145,29 @@ function boardEta(actions, cfg, prm){
 // 設定の組(パターン)と、レシピごとの割り当て(鍛冶の ITEM_PARAMS・ITEM_PARAM_OF と同じ形)。
 // 組は DEF の上に重ね、prepare に渡した設定(試験の A・B など)がさらにその上に来る。
 // 割り当ては、全レシピに組を当てて比べ、別の種で確かめてから書く(利用者 2026-10-16)
+// 布とマスの数ごとの組(布 + マスの数 → 設定)。DEF の上、レシピごとの組の下に重ねる。
+// 2026-10-17、奇跡の針★3・Lv80・コツあり・打っている途中の必殺のチャージあり・先読みなしで選んだ
+// (全544レシピに16通りの組を当てて種1000・各200局で選び、布・マス数でまとめて種5000・各300局で確かめた。引き継ぎ資料の 9-4)。
+//   ふつうの布の6・9マス: 終盤に入る範囲を ±20 に狭める。低いLvの9マスは基準値の合計が143〜207と小さく、
+//     ±30 だと1手目から終盤の打ち方になっていた。種13000・各300局で 9マス19レシピ 72.3% → 84.3%(z=18.46)・
+//     6マス29レシピ 88.5% → 91.7%(z=8.79)。ふつう4マス・光9マス・虹6マスは種5000で差が出ず(z=−0.50・0.31・−1.03)
+//   再生布の9マス: 精神統一の得の基準を5に上げる。種5000で46レシピ 87.4% → 87.8%(141対188、z=2.59)
+const GROUP_PARAMS = {
+  normal6: { endR: 20 },
+  normal9: { endR: 20 },
+  regen9: { lockMin: 5 },
+};
+// レシピごとの組と割り当て。2026-10-17 に全レシピで選んで2つの種で確かめた14レシピは、3つ目の種(13000)では
+// まとめても差が出なかった(ふだんだけ★3 159局・組だけ★3 171局、z=0.66)ので、入れていない
 const PARAM_SETS = {};
 const PARAM_OF = {};            // レシピ名 → 組の名前
+// params.noGroup: 布・マス数ごとの組を重ねない(試験で前の既定と比べる用)
 function prepare(recipe, cfg, params){
-  const prm = Object.assign({}, DEF, PARAM_SETS[PARAM_OF[recipe.name]] || {}, params || {});
   const n = recipe.cells.length;
+  const gp = params && params.noGroup ? {} : (GROUP_PARAMS[recipe.cloth + n] || {});
+  const prm = Object.assign({}, DEF, gp, PARAM_SETS[PARAM_OF[recipe.name]] || {}, params || {});
   // マスの数ごとの r1(r1 を直接渡された時はそちらが先)
   if(!(params && 'r1' in params) && prm.r1N && prm.r1N[n] !== undefined) prm.r1 = prm.r1N[n];
-  // 布とマスの数ごとの endR(endR を直接渡された時と、組で決めた時はそちらが先)
-  const own = (params && 'endR' in params) || 'endR' in (PARAM_SETS[PARAM_OF[recipe.name]] || {});
-  if(!own && prm.endRBy){ const e = prm.endRBy[recipe.cloth + n] !== undefined ? prm.endRBy[recipe.cloth + n] : prm.endRBy[recipe.cloth]; if(e !== undefined) prm.endR = e; }
   const T = ((recipe.oldLimit && SEW.EVAL_OLD[n]) || SEW.EVAL[n]).star3;
   const pen = penaltyFor(n, T, prm);
   const fakeGame = { rows: recipe.rows, cols: recipe.cols, cellAt: {} };
@@ -874,7 +886,7 @@ function playGame(recipe, cfg, seed, ctx, opts){
   return out;
 }
 
-const SEW_AI = { DEF, PARAM_SETS, PARAM_OF, prepare, choose, chooseMC, bestAction, evalAction, playGame, finishTable, rollout, candidates,
+const SEW_AI = { DEF, GROUP_PARAMS, PARAM_SETS, PARAM_OF, prepare, choose, chooseMC, bestAction, evalAction, playGame, finishTable, rollout, candidates,
   plan, mcRuns, mcPick, mcAlive };
 root.SEW_AI = SEW_AI;
 if(typeof module !== 'undefined' && module.exports) module.exports = SEW_AI;

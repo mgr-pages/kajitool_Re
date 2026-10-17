@@ -506,14 +506,14 @@ table.sk .cst{text-align:right; font-weight:700;}
 }
 /* 柄はページ全体の地(html)に敷く。body に敷いて background-attachment:fixed にすると、
    iPhone の Safari などで柄が出ないことがあるため、固定もしない(ページと一緒に流れる)。 */
-:root{--css-ver:"aaa7fb17";}
+:root{--css-ver:"a0fb0e2a";}
 .ver{margin-top:12px; font-size:10.5px; color:var(--dim); text-align:right;}
 .ver b{color:var(--red);}   /* 表示中の見た目のファイルの版(tools/stamp.py が付け直す) */
 html{
   /* 地は全面同じ色。上部を明るくするグラデーションは、ページの高さで途切れて
      下の方だけ色が変わって見えたためやめた。 */
   background:
-    url("bg-motif.svg?v=aaa7fb17") 0 0 / 900px 900px repeat,
+    url("bg-motif.svg?v=a0fb0e2a") 0 0 / 900px 900px repeat,
     var(--bg);
 }
 body{background:transparent;}
@@ -713,9 +713,9 @@ html.pg-top{background:var(--bg);}
   border-radius:14px; text-decoration:none; color:var(--text); border:1px solid rgba(198,172,116,.9);
   box-shadow:inset 0 1px 0 #fff, 0 2px 0 rgba(122,92,40,.28), 0 6px 14px rgba(74,52,24,.10);}
 .craft:active{transform:translateY(1px); box-shadow:inset 0 1px 0 #fff, 0 1px 0 rgba(122,92,40,.28);}
-.craft-kaji{background:url("bg-motif.svg?v=aaa7fb17") 0 0 / 600px 600px repeat,
+.craft-kaji{background:url("bg-motif.svg?v=a0fb0e2a") 0 0 / 600px 600px repeat,
   linear-gradient(180deg,#fffaf0 0%, var(--panel) 60%, #f3e6c8 100%);}
-.craft-sew{background:url("bg-motif-sew.svg?v=aaa7fb17") 0 0 / 600px 600px repeat,
+.craft-sew{background:url("bg-motif-sew.svg?v=a0fb0e2a") 0 0 / 600px 600px repeat,
   linear-gradient(180deg,#fdfaf3 0%, #f6f0e4 60%, #ece3d2 100%);}
 .craft-ic{flex:0 0 64px; width:64px; height:64px; color:var(--ink);}
 .craft-sew .craft-ic{color:#4f4a78;}
@@ -735,4 +735,4 @@ html.pg-top{background:var(--bg);}
 
 /* ===== 裁縫の画面(sew.html)の地 ===== */
 /* 柄は裁縫用(bg-motif-sew.svg)。地の色などは sew.css の html.pg-sew */
-html.pg-sew{background:url("bg-motif-sew.svg?v=aaa7fb17") 0 0 / 900px 900px repeat, #efe7d9;}
+html.pg-sew{background:url("bg-motif-sew.svg?v=a0fb0e2a") 0 0 / 900px 900px repeat, #efe7d9;}
