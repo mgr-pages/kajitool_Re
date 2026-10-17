@@ -24,6 +24,7 @@
      --hsp P            叩く手の後に必殺がチャージされる確率(まだチャージも使用もしていない時。既定 0)
      --hsAt N           N 手目の前に必ずチャージする(既定 -1 = しない)
      --hsNow 1          チャージされたら、すぐに使う(エンジンの判断と比べる用)
+     --hammer ID        ハンマー(engine.js の HAMMERS のキー。既定 light)
      --from N           局 N から打つ(既定 0)。局の結果は seed と局の番号だけで決まるので、
                         --from と --games で範囲を分けて並べて回しても、通しで打った時と同じ局になる
    ===================================================================== */
@@ -31,7 +32,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 
 function args(){
-  const o = { preset:'bloom', games:1000, mode:'greedy', seed:1, params:null, mcs:null, mck:null, mc:null, tape:0, log:null, summary:null, from:0, fork:0, hs0:0, hsp:0, hsAt:-1, hsNow:0, replace:0 };
+  const o = { preset:'bloom', games:1000, mode:'greedy', seed:1, params:null, mcs:null, mck:null, mc:null, tape:0, log:null, summary:null, from:0, fork:0, hs0:0, hsp:0, hsAt:-1, hsNow:0, replace:0, hammer:'light' };
   const a = process.argv.slice(2);
   for(let i = 0; i < a.length; i++){
     const k = a[i].replace(/^--/, ''), v = a[++i];
@@ -68,17 +69,18 @@ async function playGame(E, o, g){
     if(!(key in tape)) tape[key] = seeded((o.seed * 100003 + g * 7919) ^ (k.charCodeAt(0) * 1000003 + s * 131 + i * 7))();
     return tape[key]; };
   const p = E('PRESETS')[o.preset], G = E('G');
-  G.preset = o.preset; G.trait = p.trait; G.level = 80; G.hammerId = 'light'; G.star = 3;
+  G.preset = o.preset; G.trait = p.trait; G.level = 80; G.hammerId = o.hammer || 'light'; G.star = 3;
   G.masses = p.zones.map(([lo,hi],i) => { const off = !!(p.off && p.off.includes(i));
     return { current:0, zoneLow: off?0:lo, zoneHigh: off?0:hi, off }; });
   E('setActiveMask')(G.masses.map(m => !m.off)); E('applyThreshold')();
   G.temp = 1000; E('litMassIndex = null; simFirstMove = null;');
-  G.focus = E('FOCUS_CAP[80] + HAMMERS.light.focusBonus');
+  G.focus = E('FOCUS_CAP[80]') + E('HAMMERS')[G.hammerId].focusBonus;
   G.rec = null; G.plan = []; G.pending = []; G.hist = []; G.posts = null; G.obs = null;
   const cfg = E('cfgOf')(), P = E('PARAMS');
   const ideal = G.masses.map((m, i) => m.zoneLow + Math.floor(R('i', 0, i) * (m.zoneHigh - m.zoneLow + 1)));
   const fin = [];                     // 各マスの最後の一打の分類
   const modori = [];                  // 起きた戻り
+  let trace = 0;                      // 打った手の並びの指紋(設定を変えても打ち方が変わらないかを見る用)
   let moves = 0, redoN = 0, forkBase = null, hsUsed = false, hsAt = -1, hsFire = -1, hsZone = -1, hsZoneBad = -1, undoOps = 0;
   if(o.fork) P.er = 0;                // --fork: 全マスがゾーンに入るまでは今の設定で打つ
   E('HS = 0;');
@@ -136,6 +138,7 @@ async function playGame(E, o, g){
     const prevId = G.hist.length ? G.hist[G.hist.length - 1] : null;
     if((prevId === 'karyoku' && mv.sk.id === 'hiyashikomi') || (prevId === 'hiyashikomi' && mv.sk.id === 'karyoku')) undoOps++;
     G.focus -= mv.c; G.temp = mv.nt; G.hist.push(mv.sk.id); moves++;
+    { const k = mv.sk.id + ':' + mv.tg.join('.'); for(let q = 0; q < k.length; q++) trace = (Math.imul(trace, 31) + k.charCodeAt(q)) >>> 0; trace = (Math.imul(trace, 31) + 59) >>> 0; }
     const md = E('applyModori')(G.masses, G.temp, G.trait, () => R('m', s, 0));   // 戻り
     if(md) modori.push(md);
     // 画面では戻りの後の値を入れるので、戻ったマスはそのように扱う
@@ -152,7 +155,7 @@ async function playGame(E, o, g){
   const over = G.masses.some(m => m.current > m.zoneHigh);
   const err = errs.reduce((a,e) => a + (e || 0), 0);
   return { g, great: reached && err <= E('SUCCESS_THRESHOLD'), reached, over, err, errs,
-           overBy: G.masses.map(m => m.current > m.zoneHigh), focusLeft: G.focus, moves, fin: fin.slice(), modori: modori.slice(), redoN, hsAt, hsFire, hsZone, hsZoneBad, undoOps };
+           overBy: G.masses.map(m => m.current > m.zoneHigh), focusLeft: G.focus, moves, trace, fin: fin.slice(), modori: modori.slice(), redoN, hsAt, hsFire, hsZone, hsZoneBad, undoOps };
   }
 }
 
