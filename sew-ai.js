@@ -33,6 +33,7 @@ const DEF = {
   regenRedMax: null, // そのマスが赤くなると赤いマスがこの数以上になる時は、赤いマスを戻る見込みで見ない(0 で使わない)。null ならマスの数ごとの regenRedMaxN
   regenRedMaxN: { 4: 3, 6: 2, 9: 3 },   // 2026-10-16、再生布・各10レシピ: 9マス 3(種1000で選び 種5000 z=3.00)・6マス 2(種1000 z=8.04・種5000 z=5.44)・4マス 3(種1000 z=2.29・種9000 z=2.32、+1pt 弱)
   endR: 30,          // 全マスの残りがこの範囲(-endR〜endR)に入ったら終盤の評価に切り替える
+  endRBy: null,      // 布とマスの数ごとの endR { 'normal9': 20, 'normal': 20, … }(布+マスの数 → 布 の順に探す。endR を直接渡された時はそちらが先)
   endOver: 2,        // 終盤の表で、1手あたりに割り振る精神統一の消費
   endStep: 4,        // 終盤の盤の値で、集中力を何刻みで割り振るか
   qFmax: 320,
@@ -152,6 +153,9 @@ function prepare(recipe, cfg, params){
   const n = recipe.cells.length;
   // マスの数ごとの r1(r1 を直接渡された時はそちらが先)
   if(!(params && 'r1' in params) && prm.r1N && prm.r1N[n] !== undefined) prm.r1 = prm.r1N[n];
+  // 布とマスの数ごとの endR(endR を直接渡された時と、組で決めた時はそちらが先)
+  const own = (params && 'endR' in params) || 'endR' in (PARAM_SETS[PARAM_OF[recipe.name]] || {});
+  if(!own && prm.endRBy){ const e = prm.endRBy[recipe.cloth + n] !== undefined ? prm.endRBy[recipe.cloth + n] : prm.endRBy[recipe.cloth]; if(e !== undefined) prm.endR = e; }
   const T = ((recipe.oldLimit && SEW.EVAL_OLD[n]) || SEW.EVAL[n]).star3;
   const pen = penaltyFor(n, T, prm);
   const fakeGame = { rows: recipe.rows, cols: recipe.cols, cellAt: {} };
