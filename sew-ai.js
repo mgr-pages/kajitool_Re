@@ -857,9 +857,11 @@ function playGame(recipe, cfg, seed, ctx, opts){
   const rng = SEW.makeRng(seed);
   const g = SEW.newGame(recipe, cfg, rng, opts);
   SEW.beginTurn(g, cfg, rng);
-  let moves = 0;
+  let moves = 0, th = 0;
+  const tr = opts && opts.trace;   // 打った手の並びの指紋も返す(試験の道具で、設定を変えても打ち方が変わらないかを見る用)
   while(!g.finished && moves < 200){
     const m = mc ? chooseMC(g, cfg, ctx, Object.assign({}, mc, { seed: (seed * 131 + moves * 977 + 12345) >>> 0 })) : choose(g, cfg, ctx);
+    if(tr){ const k = (m.finish ? 'F' : m.skill) + (m.anchor ? m.anchor.r * 8 + m.anchor.c : ''); for(let i = 0; i < k.length; i++) th = (Math.imul(th, 31) + k.charCodeAt(i)) >>> 0; th = (Math.imul(th, 31) + 59) >>> 0; }
     const res = SEW.act(g, m, cfg, rng);
     if(!res.ok && !m.finish){ SEW.act(g, { finish: true }, cfg, rng); break; }
     moves++;
@@ -867,7 +869,9 @@ function playGame(recipe, cfg, seed, ctx, opts){
   }
   if(!g.finished) SEW.act(g, { finish: true }, cfg, rng);
   const j = SEW.judge(g);
-  return { star: j.star, total: j.total, focus: g.focus, turns: g.turn };
+  const out = { star: j.star, total: j.total, focus: g.focus, turns: g.turn };
+  if(tr) out.trace = th;
+  return out;
 }
 
 const SEW_AI = { DEF, PARAM_SETS, PARAM_OF, prepare, choose, chooseMC, bestAction, evalAction, playGame, finishTable, rollout, candidates,
