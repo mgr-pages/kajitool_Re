@@ -688,6 +688,10 @@ function isStartState(){
 
 const START_TEMP = 1000;   // 鍛冶開始時の温度
 
+// 推奨手で使う技の習得Lv。商材の重みの ban(技の id の配列)にある技は使わない(習得していない扱い)。
+// 品ごとの工夫(例: 熱風おろしを使わない)を重みの組で書けるようにするため。画面の技の一覧(ui.js)は G.level で見るので変わらない
+function lvOf(sk){ return PARAMS.ban && PARAMS.ban.includes(sk.id) ? 999 : sk.lv; }
+
 const SKILLS = [
   {id:'tataku', name:'たたく', lv:1, cost:5, key:'tataku', masses:1, shape:'single', tempDelta:-50},
   {id:'jouge', name:'上下打ち', lv:2, cost:8, key:'joge', masses:2, shape:'vertical', tempDelta:-50},
@@ -881,7 +885,7 @@ function boardDone(ms, trait){
 // 戻りを起こすには温度を200の倍数に合わせる必要があり、打てるマスが無いので温度操作だけで合わせる。
 // 火力上げ・冷やし込みを最大2手組み合わせ、200の倍数に着く最安の1手目を返す。着けなければ null。
 function modoriRecover(ms, f, t, cfg){
-  const ops = SKILLS.filter(s => s.masses === 0 && s.lv <= cfg.level);
+  const ops = SKILLS.filter(s => s.masses === 0 && lvOf(s) <= cfg.level);
   let best = null, bc = Infinity;
   for(const a of ops){
     const ca = actualCostOf(a, t, cfg.trait), ta = t + a.tempDelta;
@@ -916,7 +920,7 @@ function litReadyFrac(ms, x, t, f, cfg){
     if(m.zoneHigh <= 0 || m.current >= m.zoneLow) continue;
     un++;
     for(const sk of SKILLS){
-      if(!sk.crit || sk.masses !== 1 || sk.lv > cfg.level) continue;
+      if(!sk.crit || sk.masses !== 1 || lvOf(sk) > cfg.level) continue;
       if(actualCostOf(sk, x.nt, cfg.trait) > fa) continue;
       const r = getRollCandidates(sk, x.nt, cfg.trait, true);
       if(r && m.current + r[r.length-1] <= m.zoneHigh && m.current + 2*r[0] >= m.zoneHigh){ ready++; break; }
@@ -945,7 +949,7 @@ function modoriRedo(ms, f, t, P, cfg){
     const ee = massExpErr(i, m);
     if(ee < P.redoMin) continue;
     for(const sk of SKILLS){
-      if(sk.masses !== 1 || !sk.key || sk.crit || sk.lv > cfg.level) continue;   // 会心で大きく超えないよう狙い系は使わない
+      if(sk.masses !== 1 || !sk.key || sk.crit || lvOf(sk) > cfg.level) continue;   // 会心で大きく超えないよう狙い系は使わない
       const c = actualCostOf(sk, t, cfg.trait);
       if(c > f || f - c < P.redoF) continue;
       const nt = Math.max(0, t + sk.tempDelta);
@@ -993,7 +997,8 @@ const LDP_CACHE = new Map();
 let IN_ROLLOUT = 0;                      // 先読みの試行の中か(mcRollout・tracedRollout が数える)
 function ldpTable(L, H, a, cfg){
   const mod = cfg.trait === 'modori' ? modoriRange() : null;
-  const key = [L, H, a, cfg.level, cfg.hammerId, cfg.star, cfg.trait, G.kotsu === false ? 0 : 1].join('|') + (mod ? '|' + mod.min + '|' + mod.max : '');
+  // 使わない技(重みの ban)で表の手が変わるので、鍵に入れる(入れないと、別の商材の表と混ぜた時に手の並びがずれる)
+  const key = [L, H, a, cfg.level, cfg.hammerId, cfg.star, cfg.trait, G.kotsu === false ? 0 : 1, (PARAMS.ban || []).join('+')].join('|') + (mod ? '|' + mod.min + '|' + mod.max : '');
   let tb = LDP_CACHE.get(key);
   if(tb){ LDP_CACHE.delete(key); LDP_CACHE.set(key, tb); return tb; }
   const w = H - L + 1, big = a >= MAX_ERR;          // 誤差は4で頭打ちなので、許される誤差が4以上ならゾーン内はどこでも良い
@@ -1011,7 +1016,7 @@ function ldpTable(L, H, a, cfg){
   const acts = [];
   for(const id of [...LDP_HIT_IDS, 'karyoku', 'hiyashikomi']){
     const sk = SKILLS.find(x => x.id === id);
-    if(!sk || sk.lv > cfg.level) continue;
+    if(!sk || lvOf(sk) > cfg.level) continue;
     const rows = [];
     for(let ti = 0; ti < LDP_NT; ti++){
       const T = (ti + 1) * 50, nt = T + sk.tempDelta;
@@ -1437,7 +1442,7 @@ function twoMassMove(ms, f, t, P, cfg){
 const TRAP_CACHE = new Map();
 function trapPlan(ms, idx, cfg, P){
   const GM = P.trapG || 160, kappa = P.trapK, eps = P.trapL * (1 - kappa), rho = P.trapR || 0;
-  const key = [idx.map(i => ms[i].zoneLow + '-' + ms[i].zoneHigh).join('/'), cfg.trait, cfg.level, cfg.hammerId, cfg.star, G.kotsu === false ? 0 : 1, GM, kappa, eps, rho].join('|');
+  const key = [idx.map(i => ms[i].zoneLow + '-' + ms[i].zoneHigh).join('/'), cfg.trait, cfg.level, cfg.hammerId, cfg.star, G.kotsu === false ? 0 : 1, GM, kappa, eps, rho, (PARAMS.ban || []).join('+')].join('|');
   if(TRAP_CACHE.has(key)) return TRAP_CACHE.get(key);
   const saved = simFirstMove;
   simFirstMove = false;                  // 地金特性が乗った後のロールと会心率で作る
@@ -1448,7 +1453,7 @@ function trapPlan(ms, idx, cfg, P){
 }
 function trapBuild(ms, idx, cfg, GM, kappa, eps, rho){
   const trait = cfg.trait, NT = LDP_NT;
-  const jn = SKILLS.find(s => s.id === 'jouge_nerai' && s.lv <= cfg.level);
+  const jn = SKILLS.find(s => s.id === 'jouge_nerai' && lvOf(s) <= cfg.level);
   if(!jn || !enumerateTargetSets(jn).some(tg => tg.length === 2 && tg.includes(idx[0]) && tg.includes(idx[1]))) return null;
   const W = idx.map(i => ms[i].zoneHigh - ms[i].zoneLow + 1);
   // 一番近い罠の距離(これより近づいたら罠をあきらめる)。罠の距離は温度ごとに [最大ロール+1, 2×最小ロール−幅+1]。
@@ -1487,7 +1492,7 @@ function trapBuild(ms, idx, cfg, GM, kappa, eps, rho){
   // 寄せの手: 叩く手は当たるマスの組(1 = A だけ・2 = B だけ・3 = 両方)ごと。同じ威力・組・温度の変化で消費が多い手(4連打ち)は除く
   const hits = [], temps = [];
   for(const sk of SKILLS){
-    if(sk.lv > cfg.level || sk.random || sk.id === 'jouge_nerai') continue;
+    if(lvOf(sk) > cfg.level || sk.random || sk.id === 'jouge_nerai') continue;
     if(!sk.key){ temps.push(sk); continue; }
     const sets = new Set();
     for(const tg of enumerateTargetSets(sk)){
@@ -1946,7 +1951,7 @@ function hitSeq(mv, rnd){
 function moves(ms,f,t,cfg){
   const strict=[], loose=[];
   for(const sk of SKILLS){
-    if(sk.lv>cfg.level)continue;
+    if(lvOf(sk)>cfg.level)continue;
     if(sk.random){
       if(!PARAMS.midare) continue;      // 運の要素が大きいので、素材の params で midare:1 を入れた時だけ使う(幽紋刀のみ)
       const mv = midareMove(ms, f, t, cfg, sk);
@@ -1983,7 +1988,7 @@ function moves(ms,f,t,cfg){
   // (例: 700℃で残り1のマスは、火力上げで1000℃にすればてかげん打ち3〜5で収まる)。
   const cool=[];
   for(const sk of SKILLS){
-    if(sk.lv>cfg.level||sk.masses!==0||sk.tempDelta===0)continue;
+    if(lvOf(sk)>cfg.level||sk.masses!==0||sk.tempDelta===0)continue;
     const c=actualCostOf(sk,t,cfg.trait);
     if(c>f)continue;
     const nt=Math.max(0,t+sk.tempDelta);
@@ -1991,7 +1996,7 @@ function moves(ms,f,t,cfg){
     // 下げた先で安全に打てるようになるか
     let ok=false;
     for(const s2 of SKILLS){
-      if(s2.lv>cfg.level||s2.masses===0||s2.id==='midare')continue;
+      if(lvOf(s2)>cfg.level||s2.masses===0||s2.id==='midare')continue;
       const r2=getRollCandidates(s2,nt,cfg.trait,false);
       if(!r2||actualCostOf(s2,nt,cfg.trait)>f-c)continue;
       for(const tg2 of enumerateTargetSets(s2)){
@@ -2012,7 +2017,7 @@ function moves(ms,f,t,cfg){
   // 冷却が複数回必要なこともある。集中力が許すなら冷却を優先する。
   const rescue=[];
   for(const sk of SKILLS){
-    if(sk.lv>cfg.level||sk.id==='midare')continue;
+    if(lvOf(sk)>cfg.level||sk.id==='midare')continue;
     if(sk.tempDelta>=0)continue;
     const c=actualCostOf(sk,t,cfg.trait);
     if(c>f)continue;
@@ -2025,7 +2030,7 @@ function moves(ms,f,t,cfg){
       for(const m of ms){
         if(m.current>=m.zoneLow)continue;
         for(const s2 of SKILLS){
-          if(s2.lv>cfg.level||s2.masses===0||s2.id==='midare')continue;
+          if(lvOf(s2)>cfg.level||s2.masses===0||s2.id==='midare')continue;
           const r2=getRollCandidates(s2,tt,cfg.trait,false);
           if(!r2)continue;
           if(actualCostOf(s2,tt,cfg.trait)>ff)continue;
@@ -2097,7 +2102,7 @@ let P_OPEN_TH = 0.65;
 // 上下ねらい打ちは2マス同時に本会心を狙える唯一の技。
 // 消費25で2マス分なので、単発のねらい打ち(16×2=32)より安い。
 function pairSnipe(ms, f, t, cfg, P){
-  const jn = SKILLS.find(s => s.id === 'jouge_nerai' && s.lv <= cfg.level);
+  const jn = SKILLS.find(s => s.id === 'jouge_nerai' && lvOf(s) <= cfg.level);
   if(!jn) return null;
   const c = actualCostOf(jn, t, cfg.trait);
   if(c > f) return null;
@@ -2125,12 +2130,12 @@ function pairSnipe(ms, f, t, cfg, P){
 
 function tatakiOpening(ms, f, t, cfg){
   if(cfg.trait !== 'tataki') return null;
-  const K  = SKILLS.find(s => s.id === 'karyoku'    && s.lv <= cfg.level);
-  const R  = SKILLS.find(s => s.id === 'reppuu'     && s.lv <= cfg.level);
-  const C4 = SKILLS.find(s => s.id === 'chouyonren' && s.lv <= cfg.level);
-  const Y4 = SKILLS.find(s => s.id === 'yonren'     && s.lv <= cfg.level);
-  const NN = SKILLS.find(s => s.id === 'naname'     && s.lv <= cfg.level);
-  const TK = SKILLS.find(s => s.id === 'tataku'     && s.lv <= cfg.level);
+  const K  = SKILLS.find(s => s.id === 'karyoku'    && lvOf(s) <= cfg.level);
+  const R  = SKILLS.find(s => s.id === 'reppuu'     && lvOf(s) <= cfg.level);
+  const C4 = SKILLS.find(s => s.id === 'chouyonren' && lvOf(s) <= cfg.level);
+  const Y4 = SKILLS.find(s => s.id === 'yonren'     && lvOf(s) <= cfg.level);
+  const NN = SKILLS.find(s => s.id === 'naname'     && lvOf(s) <= cfg.level);
+  const TK = SKILLS.find(s => s.id === 'tataku'     && lvOf(s) <= cfg.level);
   if(!K || !R || !C4 || !Y4 || !NN || !TK) return null;
   const mk = (sk, tg) => {
     // 定跡はマス番号を直接指定するので、存在しないマスを含む形はここで弾く
@@ -2244,7 +2249,7 @@ function tatakiOpening(ms, f, t, cfg){
       }
     }
     for(const sk of [Y4, NN, SKILLS.find(s=>s.id==='sayuu'), TK]){
-      if(!sk || sk.lv > cfg.level) continue;
+      if(!sk || lvOf(sk) > cfg.level) continue;
       const r = getRollCandidates(sk, t, cfg.trait, false);
       if(!r) continue;
       for(const tg of enumerateTargetSets(sk)){
@@ -2308,7 +2313,7 @@ function hsGain(m, i, r, P){
 function hsBestHit(ms, f, T, cfg, P){
   let best = null, bv = -Infinity;
   for(const sk of SKILLS){
-    if(!sk.key || sk.random || sk.lv > cfg.level) continue;
+    if(!sk.key || sk.random || lvOf(sk) > cfg.level) continue;
     const c = actualCostOf(sk, T, cfg.trait), nt = T + sk.tempDelta;
     if(c > f || nt <= 0) continue;
     for(const tg of enumerateTargetSets(sk)){
@@ -2331,7 +2336,7 @@ function hsBuffBest(ms, f, t, cfg, P){
   const now = hsBestHit(ms, f, t, cfg, P);
   let best = now ? { mv: now.mv, v: now.v } : null;
   for(const op of SKILLS){
-    if(op.key || op.masses !== 0 || op.lv > cfg.level) continue;
+    if(op.key || op.masses !== 0 || lvOf(op) > cfg.level) continue;
     const c = actualCostOf(op, t, cfg.trait), t2 = t + op.tempDelta;
     if(c > f || t2 <= 0 || t2 > 2400) continue;
     const h = hsBestHit(ms, f - c, t2, cfg, P);
@@ -2362,7 +2367,7 @@ function hsShouldFire(ms, f, t, cfg, P){
 //     ひだね 92.1 → 94.0% / 幽紋刀 64.4 → 74.5% / あまつゆ 89.6 → 90.3% / 光の鍛冶ハンマー 91.0 → 94.7%(300局)。
 //   チャージが来たらすぐ使うのは、ほぼ効かない(マスがまだ遠く、会心でも理想値に届かない。あまつゆは 52.1 → 21.8% と悪化)。
 function hsSquareSkill(cfg){
-  return SKILLS.find(s => s.id === 'chouyonren' && s.lv <= cfg.level) || SKILLS.find(s => s.id === 'yonren' && s.lv <= cfg.level) || null;
+  return SKILLS.find(s => s.id === 'chouyonren' && lvOf(s) <= cfg.level) || SKILLS.find(s => s.id === 'yonren' && lvOf(s) <= cfg.level) || null;
 }
 // 温度 T で超4連打ちの会心が必ず理想値に届く、一番低い値
 function hsWindowLow(m, i, sq, T, cfg){ const r = rollsForMass(sq, T, cfg.trait, i); return r ? m.zoneHigh - 2*r[0] : Infinity; }
@@ -2455,7 +2460,7 @@ function boostOpMove(mv, ms, f, t, P, cfg){
   if(m.current >= m.zoneLow) return null;
   let open = 0; for(const x of ms) if(x.zoneHigh > 0 && x.current < x.zoneLow) open++;
   for(const op of SKILLS){
-    if(op.key || op.masses !== 0 || op.lv > cfg.level) continue;
+    if(op.key || op.masses !== 0 || lvOf(op) > cfg.level) continue;
     const t2 = t + op.tempDelta; if(t2 <= 0 || t2 > 2000 || !isBoostTurn(t2)) continue;
     const c1 = actualCostOf(op, t, cfg.trait), c2 = actualCostOf(mv.sk, t2, cfg.trait);
     if(f - c1 - c2 < (open - 1) * (P.bopR || 16)) continue;
@@ -2619,7 +2624,7 @@ function stratB0(ms,f,t,P,cfg){
           }
         } else {
           // 次の会心ターンへ温度を下げる
-          const hiya = SKILLS.find(s => s.id === 'hiyashikomi' && s.lv <= cfg.level);
+          const hiya = SKILLS.find(s => s.id === 'hiyashikomi' && lvOf(s) <= cfg.level);
           if(hiya && t - step.to >= 300){
             const c = actualCostOf(hiya, t, cfg.trait);
             if(c <= f) return {sk: hiya, tg: [], c, nt: Math.max(0, t - 300), overP: 0};
@@ -2627,7 +2632,7 @@ function stratB0(ms,f,t,P,cfg){
           // 端数は、未到達マスを進めすぎない最安の打撃で刻む
           let pick = null, pc = Infinity;
           for(const s of SKILLS){
-            if(s.lv > cfg.level || s.masses !== 1 || s.id === 'midare') continue;
+            if(lvOf(s) > cfg.level || s.masses !== 1 || s.id === 'midare') continue;
             if(s.tempDelta !== -50) continue;
             const c = actualCostOf(s, t, cfg.trait);
             if(c < pc){ pc = c; pick = s; }
@@ -2685,7 +2690,7 @@ function stratB0(ms,f,t,P,cfg){
     // そのマスをゾーンに入れられる最安の手を探す
     let cheapest=Infinity;
     for(const sk of SKILLS){
-      if(sk.lv>cfg.level||sk.masses===0||sk.id==='midare')continue;
+      if(lvOf(sk)>cfg.level||sk.masses===0||sk.id==='midare')continue;
       const c=actualCostOf(sk,t,cfg.trait);
       const r=rollsForMass(sk,t,cfg.trait,mi);
       if(!r)continue;
@@ -2698,7 +2703,7 @@ function stratB0(ms,f,t,P,cfg){
       // 一撃で入らないなら、必要打数ぶんの概算
       let bestEff=0, cost1=8;
       for(const sk of SKILLS){
-        if(sk.lv>cfg.level||sk.masses===0||sk.id==='midare')continue;
+        if(lvOf(sk)>cfg.level||sk.masses===0||sk.id==='midare')continue;
         const r=rollsForMass(sk,t,cfg.trait,mi);
         if(!r)continue;
         const c=actualCostOf(sk,t,cfg.trait);
@@ -2927,7 +2932,7 @@ function stratB0(ms,f,t,P,cfg){
       else {
         // 次の一手で特殊温度に届くなら、それも評価する
         for(const s2 of SKILLS){
-          if(s2.lv>cfg.level || s2.id==='midare') continue;
+          if(lvOf(s2)>cfg.level || s2.id==='midare') continue;
           const n2 = Math.max(0, nt + s2.tempDelta);
           if(n2>0 && (isBoostTurn(n2) || isHalfTurn(n2))){ turnVal += 0.4; break; }
         }
@@ -2946,7 +2951,7 @@ function stratB0(ms,f,t,P,cfg){
       else {
         // 次の一手で威力2倍に届くなら、その手前として評価する
         for(const s2 of SKILLS){
-          if(s2.lv > cfg.level || s2.id === 'midare') continue;
+          if(lvOf(s2) > cfg.level || s2.id === 'midare') continue;
           const n2 = Math.max(0, x.nt + s2.tempDelta);
           if(n2 > 0 && n2 % 400 === 0){ v = 0.4; break; }
         }
@@ -3501,7 +3506,7 @@ function cfgOf(){
 function killerAt(m, temp, cfg){
   let best = null, bc = Infinity;
   for(const s of SKILLS){
-    if(!s.crit || s.lv > cfg.level) continue;
+    if(!s.crit || lvOf(s) > cfg.level) continue;
     const r = getRollCandidates(s, temp, cfg.trait, false);
     if(!r) continue;
     if(m.current + r[r.length-1] > m.zoneHigh) continue;      // はみ出す
@@ -3525,7 +3530,7 @@ function boostTempsFrom(t){
 // 温度Aから温度Bへ下げるコスト(冷やし込み優先、端数は最安の打撃で刻む)
 function coolCost(from, to, cfg){
   if(from <= to) return {cost: 0, steps: 0};
-  const hiya = SKILLS.find(s => s.id === 'hiyashikomi' && s.lv <= cfg.level);
+  const hiya = SKILLS.find(s => s.id === 'hiyashikomi' && lvOf(s) <= cfg.level);
   let cur = from, cost = 0, steps = 0, guard = 0;
   while(cur > to && guard++ < 30){
     const diff = cur - to;
@@ -3536,7 +3541,7 @@ function coolCost(from, to, cfg){
       // 打撃で刻む。最安の単発技(前進してしまうが仕方ない)
       let cheap = Infinity;
       for(const s of SKILLS){
-        if(s.lv > cfg.level || s.masses !== 1 || s.id === 'midare') continue;
+        if(lvOf(s) > cfg.level || s.masses !== 1 || s.id === 'midare') continue;
         if(s.tempDelta !== -50) continue;
         cheap = Math.min(cheap, actualCostOf(s, cur, cfg.trait));
       }

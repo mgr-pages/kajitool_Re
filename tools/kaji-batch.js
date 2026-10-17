@@ -34,9 +34,9 @@ async function run(job){
     const row = [];
     for(const p of job.variants){
       PR.params = job.replace ? p : Object.assign({}, orig, p);
-      const o = { preset: job.preset, seed: job.seed, tape: 1, mode: 'greedy', fork: 0, hs0: 0, hsp: 0, hsAt: -1, hsNow: 0 };
+      const o = { preset: job.preset, seed: job.seed, tape: 1, mode: 'greedy', fork: 0, hs0: 0, hsp: 0, hsAt: -1, hsNow: 0, hammer: job.hammer || 'light' };
       const r = await A.playGame(E, o, g);
-      row.push({ great: r.great ? 1 : 0, reached: r.reached ? 1 : 0, over: r.over ? 1 : 0, err: r.err, focus: r.focusLeft });
+      row.push({ great: r.great ? 1 : 0, reached: r.reached ? 1 : 0, over: r.over ? 1 : 0, err: r.err, focus: r.focusLeft, trace: r.trace });
     }
     out.push(row);
   }
@@ -46,21 +46,26 @@ async function run(job){
 
 /* ---- 親プロセス側 ---- */
 // 戻り値: { 商材: [局 0 の [A の結果, B1 の結果, …], 局 1 …] }
-async function runKaji({ items, N, seed, variants, replace, label, quiet }){
+// variantsOf(商材): 商材ごとに違う重みの並びを打つ時(無ければ variants)。from: 局の番号の始め(既定 0。局 from〜N−1 を打つ)
+async function runKaji({ items, N, seed, variants, variantsOf, from: from0, replace, hammer, label, quiet }){
   const { runPool, chunks, procs } = require('./pool.js');
+  const F0 = from0 || 0, M = N - F0;
   const per = Math.max(1, Math.ceil(procs() * 8 / items.length));
-  const size = Number(process.env.POOL_CHUNK) || Math.max(5, Math.min(100, Math.ceil(N / per)));
+  const size = Number(process.env.POOL_CHUNK) || Math.max(5, Math.min(100, Math.ceil(M / per)));
   const jobs = [];
-  for(const it of items) for(const [from, to] of chunks(N, size))
-    jobs.push({ key: [it, JSON.stringify(variants), replace ? 1 : 0, seed, from, to].join('|'), cost: (to - from) * variants.length,
-                preset: it, from, to, seed, variants, replace: !!replace });
+  for(const it of items){
+    const vs = variantsOf ? variantsOf(it) : variants;
+    for(const [f, t] of chunks(M, size))
+      jobs.push({ key: [it, JSON.stringify(vs), replace ? 1 : 0, seed, F0 + f, F0 + t, hammer || 'light'].join('|'), cost: (t - f) * vs.length,
+                  preset: it, from: F0 + f, to: F0 + t, seed, variants: vs, replace: !!replace, hammer: hammer || 'light' });
+  }
   const t0 = Date.now();
   if(!quiet) process.stderr.write(`${jobs.length}個の仕事(${size}局ずつ)を ${Math.min(procs(), jobs.length)}並列で回します…\n`);
   const res = await runPool(jobs, { worker: __filename, label: label || 'kaji-batch',
     onDone: (j, r, k, done, all) => { if(!quiet && (done % Math.max(1, Math.floor(all / 10)) === 0 || done === all)) process.stderr.write(`  ${done}/${all}\n`); } });
   const rows = {};
-  for(const it of items) rows[it] = new Array(N);
-  res.forEach(r => r.out.forEach((v, i) => { rows[r.preset][r.from + i] = v; }));
+  for(const it of items) rows[it] = new Array(M);
+  res.forEach(r => r.out.forEach((v, i) => { rows[r.preset][r.from - F0 + i] = v; }));
   if(!quiet) process.stderr.write(`所要 ${Math.round((Date.now() - t0) / 1000)}秒\n`);
   return rows;
 }
