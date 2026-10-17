@@ -195,7 +195,9 @@ function summarize(rows, label){
     console.log(`  最後の一打 ${k}: ${(c.n/n).toFixed(2)}回/局 誤差0 ${(c.ex/c.n*100).toFixed(0)}%`);
 }
 
-(async () => {
+// 並べて回す道具(tools/kaji-batch.js)から読む時は、下の main は動かさない
+module.exports = { loadEngine, playGame, summarize, seeded };
+if(require.main === module) (async () => {
   const o = args();
   if(o.summary){
     const rows = fs.readFileSync(o.summary, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);

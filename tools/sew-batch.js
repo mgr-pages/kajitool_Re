@@ -13,7 +13,7 @@
      };
    使い方: node tools/sew-batch.js <試験のファイル> [レシピ名,…|代表|all] [局数] [種の始め] ['<JSON の引数>']
    ・条件(職人Lv・針など)は試験の側で決める。既定の推奨手は sew-ai.js(環境変数 SEW_AI で作業用の写しに替えられる)。
-   ・1つの仕事の局数は自動で決める(コアの数の6倍ほどの仕事になるように)。環境変数 POOL_CHUNK で指定もできる。
+   ・1つの仕事の局数は自動で決める(コアの数の8倍以上の仕事になるように、1つは多くても50局)。環境変数 POOL_CHUNK で指定もできる。
    ===================================================================== */
 'use strict';
 const path = require('path');
@@ -49,23 +49,30 @@ function recipeNames(spec){
   return spec.split(',');
 }
 // exp: 試験のファイルの絶対パス。戻り値は rows(report に渡す形)
-async function runSew({ exp, names, N, seed, args, label, quiet }){
+// argsOf(レシピ名): レシピごとに違う引数を渡す時(無ければ args)。from: 局の番号の始め(既定 0。局 from〜N−1 を打つ)
+async function runSew({ exp, names, N, seed, args, argsOf, from: from0, label, quiet }){
   const { runPool, chunks, procs } = require('./pool.js');
   const { SEW_RECIPES } = lib();
   const recipes = names.map(n => { const r = SEW_RECIPES.find(x => x.name === n); if(!r) throw new Error('レシピが見つかりません: ' + n); return r; });
-  const per = Math.max(1, Math.ceil(procs() * 6 / recipes.length));
-  const size = Number(process.env.POOL_CHUNK) || Math.max(5, Math.ceil(N / per));
+  // 仕事は細かく分ける(準備は 1レシピ数十ミリ秒で、細かくしても損がない。最後に1つだけ重い仕事が残って待つのを防ぐ)。
+  // コアの数の8倍以上の仕事になるようにし、1つの仕事は多くても50局にする
+  const F0 = from0 || 0, M = N - F0;
+  const per = Math.max(1, Math.ceil(procs() * 8 / recipes.length));
+  const size = Number(process.env.POOL_CHUNK) || Math.max(5, Math.min(50, Math.ceil(M / per)));
   const jobs = [];
-  for(const r of recipes) for(const [from, to] of chunks(N, size))
-    // 重さの目安: マスの数が多いほど重い(終盤の表と先読み)。前に回した時の秒数があればそちらを使う
-    jobs.push({ key: [path.basename(exp), JSON.stringify(args), r.name, from, to].join('|'), cost: (to - from) * r.cells.length * r.cells.length,
-                exp, name: r.name, from, to, seed, args });
+  for(const r of recipes){
+    const a = argsOf ? argsOf(r.name) : args;
+    for(const [f, t] of chunks(M, size))
+      // 重さの目安: マスの数が多いほど重い(終盤の表と先読み)。前に回した時の秒数があればそちらを使う
+      jobs.push({ key: [path.basename(exp), JSON.stringify(a), r.name, F0 + f, F0 + t].join('|'), cost: (t - f) * r.cells.length * r.cells.length,
+                  exp, name: r.name, from: F0 + f, to: F0 + t, seed, args: a });
+  }
   const t0 = Date.now();
   if(!quiet) process.stderr.write(`${jobs.length}個の仕事(${size}局ずつ)を ${Math.min(procs(), jobs.length)}並列で回します…\n`);
   const out = await runPool(jobs, { worker: __filename, label: label || 'sew-batch',
     onDone: (j, res, k, done, all) => { if(!quiet && (done % Math.max(1, Math.floor(all / 10)) === 0 || done === all)) process.stderr.write(`  ${done}/${all}\n`); } });
-  const rows = recipes.map(r => ({ name: r.name, recipe: r, results: new Array(N) }));
-  out.forEach(o => { const row = rows[names.indexOf(o.name)]; o.results.forEach((v, i) => { row.results[o.from + i] = v; }); });
+  const rows = recipes.map(r => ({ name: r.name, recipe: r, results: new Array(M) }));
+  out.forEach(o => { const row = rows[names.indexOf(o.name)]; o.results.forEach((v, i) => { row.results[o.from - F0 + i] = v; }); });
   if(!quiet) process.stderr.write(`所要 ${Math.round((Date.now() - t0) / 1000)}秒\n`);
   return rows;
 }

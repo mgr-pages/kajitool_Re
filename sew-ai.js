@@ -23,7 +23,12 @@ const DEF = {
   lockOver: 7 / 3,   // 精神統一の分を、仕上げの1手あたりに割り振った消費
   pen: null,         // 仕上げた時の誤差ごとの減点(集中力の単位)。null ならマス数と許容誤差から決める
   pen4: [0, 8, 20, 40, 60], pen6: [0, 4, 14, 26, 38], pen9: [0, 2, 9, 18, 28],
-  r1: 20,            // 仕上げの表を使う上限(これより上は削りの直線)
+  r1: 15,            // 仕上げの表を使う上限(これより上は削りの直線)。2026-10-16 に 20 → 15(詰めを効率の良い手で長く続ける)。
+                     // 新しい15レシピ+代表9レシピ・各300局: 種1000 65.9% → 69.8%(z=5.84)・種5000 66.4% → 69.6%(z=4.60)。
+                     // ミッショングラブ(選んだレシピ)は種1000 43.8% → 53.0%・種5000 44.8% → 53.8%(どちらも z=3.34)。r1 12 は差が出なかった
+  r1N: null,         // マスの数ごとの r1 { 4: , 6: , 9: }(あれば r1 より先)
+  hConv: 0,          // 削りの h を下に凸にする(r1 を超える分 x に hConv × x² / (eta × hConvS) を足す)。大きいマスを先に減らす
+  hConvS: 100,
   regenRed: true,    // 再生布: 赤いマス(縫いすぎ)は、次の再生で戻る見込みで評価する
   regenRedMax: null, // そのマスが赤くなると赤いマスがこの数以上になる時は、赤いマスを戻る見込みで見ない(0 で使わない)。null ならマスの数ごとの regenRedMaxN
   regenRedMaxN: { 4: 3, 6: 2, 9: 3 },   // 2026-10-16、再生布・各10レシピ: 9マス 3(種1000で選び 種5000 z=3.00)・6マス 2(種1000 z=8.04・種5000 z=5.44)・4マス 3(種1000 z=2.29・種9000 z=2.32、+1pt 弱)
@@ -43,7 +48,8 @@ const DEF = {
                      // 画面(sew-ui.js の SEW_AI_PARAMS)では { K:3, R:32, z:2, lo:0.02, hi:0.98, gap:0.1, seed:1, ms:5000 } を使う
                      // (2026-10-16、代表9レシピ・各300局: 種1000 72.5% → 74.3%(z=4.72)・種5000 72.9% → 74.7%(z=4.46))。
                      // 試験の道具では遅くなるので、ふだんは使わない
-  bulkMC: null,      // 削り(終盤の前)の手も試し打ちで確かめる { K: 候補の数, R: 本数, z: 乗り換えの基準, seed, ms: 時間の上限(省略可) }。
+  bulkMC: null,      // 削り(終盤の前)の手も試し打ちで確かめる { K: 候補の数, R: 本数, z: 乗り換えの基準, seed, ms: 時間の上限(省略可),
+                     //   gap: ふだんの評価の得がこれ以上低い手は候補にしない(省略可), batch・drop: 打ち切りあり(mcRace。省略可) }。
                      // 候補は ふだんの手・精神統一(できる時)・ふだんの評価の上位。ふだんの手より z 以上はっきり良い時だけ乗り換える
   endMinP: 0.002,    // 終盤の評価で、どの手でも★3の確率がこれ未満なら、ふだんの選び方に戻す
   endTieW: 0.01,     // 終盤の手選びで、集中力を endTieMul 倍に減らした時の★3の確率を、この重みで足す。
@@ -55,6 +61,7 @@ const DEF = {
   lockCostReal: false, // 精神統一の得の見積もりで、消費を今のターンの消費(虹布の半分・1.5倍)にする
   bulkLock: null,    // 削りの残り(各マスの r1 を超える分の合計)がこれ以上なら、強い・最強の固定を続ける。null で使わない
   bulkLockNet: -3,   // その時、今の強さの一番よい手の得がこれより大きいこと
+  bulkLockPow: null, // その固定を続ける強さ(null なら強い・最強)
   lockTrait: ['light4'], // 精神統一の得の見積もりで、続くターンの布の特性(光布の光るマス・虹布の消費と会心)を見る布とマスの数。true で全部
                          // (2026-10-16: 光布4マスで、種1000 z=1.76・種5000 z=2.86・Lv70〜75の10レシピ 種9000 z=3.92。虹布・再生布・6・9マスは差が出ず)
   lockSlack: 1,      // 固定するのは、順番に出てくる強さの中で手の価値が一番高い強さ(との差がこれ以内)の時だけ。null で見ない
@@ -110,8 +117,8 @@ function finishTable(cfg, pen, prm, muga){
 // h(残り): 残りが r1 までは仕上げの表(弱いで固定して仕上げる消費の期待値)。それより上は、1集中力あたり eta で減らせるとして直線でつなぐ
 function buildH(ft, prm, eta, regen){
   const { E, LO, HI } = ft;
-  const r1 = Math.min(prm.r1, HI), top = E[r1 - LO], bot = E[0];
-  const base = r => r > r1 ? top + (r - r1) / eta : r < LO ? bot + (LO - r) * 0.6 : E[r - LO];
+  const r1 = Math.min(prm.r1, HI), top = E[r1 - LO], bot = E[0], kc = prm.hConv / (eta * prm.hConvS);
+  const base = r => r > r1 ? top + (r - r1) / eta + kc * (r - r1) * (r - r1) : r < LO ? bot + (LO - r) * 0.6 : E[r - LO];
   if(!regen) return base;
   // 再生布: 赤いマスは次の再生で 12〜16 戻る(赤いマスは割合が1を超えるので、真っ先に戻る)
   const N = HI - LO + 1, H = new Float64Array(N);
@@ -135,9 +142,32 @@ function boardEta(actions, cfg, prm){
 }
 
 /* ---- レシピと設定ごとの準備 ---- */
+// 設定の組(パターン)と、レシピごとの割り当て(鍛冶の ITEM_PARAMS・ITEM_PARAM_OF と同じ形)。
+// 組は DEF の上に重ね、prepare に渡した設定(試験の A・B など)がさらにその上に来る。
+// 割り当ては、全レシピに組を当てて比べ、別の種で確かめてから書く(利用者 2026-10-16)
+// 布とマスの数ごとの組(布 + マスの数 → 設定)。DEF の上、レシピごとの組の下に重ねる。
+// 2026-10-17、奇跡の針★3・Lv80・コツあり・打っている途中の必殺のチャージあり・先読みなしで選んだ
+// (全544レシピに16通りの組を当てて種1000・各200局で選び、布・マス数でまとめて種5000・各300局で確かめた。引き継ぎ資料の 9-4)。
+//   ふつうの布の6・9マス: 終盤に入る範囲を ±20 に狭める。低いLvの9マスは基準値の合計が143〜207と小さく、
+//     ±30 だと1手目から終盤の打ち方になっていた。種13000・各300局で 9マス19レシピ 72.3% → 84.3%(z=18.46)・
+//     6マス29レシピ 88.5% → 91.7%(z=8.79)。ふつう4マス・光9マス・虹6マスは種5000で差が出ず(z=−0.50・0.31・−1.03)
+//   再生布の9マス: 精神統一の得の基準を5に上げる。種5000で46レシピ 87.4% → 87.8%(141対188、z=2.59)
+const GROUP_PARAMS = {
+  normal6: { endR: 20 },
+  normal9: { endR: 20 },
+  regen9: { lockMin: 5 },
+};
+// レシピごとの組と割り当て。2026-10-17 に全レシピで選んで2つの種で確かめた14レシピは、3つ目の種(13000)では
+// まとめても差が出なかった(ふだんだけ★3 159局・組だけ★3 171局、z=0.66)ので、入れていない
+const PARAM_SETS = {};
+const PARAM_OF = {};            // レシピ名 → 組の名前
+// params.noGroup: 布・マス数ごとの組を重ねない(試験で前の既定と比べる用)
 function prepare(recipe, cfg, params){
-  const prm = Object.assign({}, DEF, params || {});
   const n = recipe.cells.length;
+  const gp = params && params.noGroup ? {} : (GROUP_PARAMS[recipe.cloth + n] || {});
+  const prm = Object.assign({}, DEF, gp, PARAM_SETS[PARAM_OF[recipe.name]] || {}, params || {});
+  // マスの数ごとの r1(r1 を直接渡された時はそちらが先)
+  if(!(params && 'r1' in params) && prm.r1N && prm.r1N[n] !== undefined) prm.r1 = prm.r1N[n];
   const T = ((recipe.oldLimit && SEW.EVAL_OLD[n]) || SEW.EVAL[n]).star3;
   const pen = penaltyFor(n, T, prm);
   const fakeGame = { rows: recipe.rows, cols: recipe.cols, cellAt: {} };
@@ -220,15 +250,15 @@ function evalAction(g, cfg, ctx, a){
 }
 // 再生布: この手のあと、次のターンの始めに戻るマスの h の変化(手の結果は平均で見る)
 function regenDelta(g, cfg, a, h){
-  const g2 = applyMean(g, cfg, a);
+  const cum = meanCum(g, a);
   let t = -1, best = -Infinity;
-  for(let i = 0; i < g2.n; i++){
-    if(Math.abs(g2.base[i] - g2.cum[i]) <= SEW.P.yellow) continue;
-    const q = g2.cum[i] / g2.base[i]; if(q > best){ best = q; t = i; }
+  for(let i = 0; i < g.n; i++){
+    if(Math.abs(g.base[i] - cum[i]) <= SEW.P.yellow) continue;
+    const q = cum[i] / g.base[i]; if(q > best){ best = q; t = i; }
   }
   if(t < 0) return 0;
-  const r = g2.base[t] - g2.cum[t];
-  let s = 0; for(const amt of SEW.P.regen) s += h(r + Math.min(amt, g2.cum[t]));
+  const r = g.base[t] - cum[t];
+  let s = 0; for(const amt of SEW.P.regen) s += h(r + Math.min(amt, cum[t]));
   // 手そのものの評価は平均の局面ではないので、戻りの分だけを足す(戻らない場合との差)
   return h(r) - s / SEW.P.regen.length;
 }
@@ -243,26 +273,34 @@ function bestAction(g, cfg, ctx){
 // 打った後のマスを平均で進めた写し(精神統一の見積もり用)
 function applyMean(g, cfg, a){
   const g2 = SEW.cloneGame(g);
+  g2.cum = meanCum(g, a);
+  if(a.sk.kind === 'sew') for(const [i] of a.tg) g2.shitsuke[i] = false;
+  g2.glow = -1;
+  return g2;
+}
+// 打った後の各マスの縫った量(平均で進める)
+function meanCum(g, a){
+  const cum = g.cum.slice();
   if(a.sk.kind === 'sew'){
     for(const [i, mul] of a.tg){
       const cm = (g.shitsuke[i] ? 2 : 1) * (g.glow === i ? SEW.P.glowMul : 1);
       let s = 0; for(let b = 12; b <= 18; b++) s += SEW.rollValue(b, mul, g.power, cm);
-      g2.cum[i] += Math.round(s / 7); g2.shitsuke[i] = false;
+      cum[i] += Math.round(s / 7);
     }
   } else if(a.sk.kind === 'midare'){
-    for(let i = 0; i < g.n; i++){ let s = 0; for(let b = 12; b <= 18; b++) for(const m of a.sk.muls) s += SEW.rollValue(b, m, g.power, 1); g2.cum[i] += Math.round(s / 7 / g.n); }
+    for(let i = 0; i < g.n; i++){ let s = 0; for(let b = 12; b <= 18; b++) for(const m of a.sk.muls) s += SEW.rollValue(b, m, g.power, 1); cum[i] += Math.round(s / 7 / g.n); }
   } else if(a.sk.kind === 'hogushi'){
-    const i = a.tg[0][0]; g2.cum[i] = Math.max(0, g2.cum[i] - Math.floor(7.5 * SEW.POWER[g.power]));
+    const i = a.tg[0][0]; cum[i] = Math.max(0, cum[i] - Math.floor(7.5 * SEW.POWER[g.power]));
   }
-  g2.glow = -1;
-  return g2;
+  return cum;
 }
 // 精神統一の得: 固定すると、今の強さの手を3回(今のターンの分を引いて、実質2回ぶん)多く打てる
-function lockGain(g, cfg, ctx){
+// best0: 今の局面の一番よい手(呼ぶ側で計算済みなら渡す。同じ計算を省く)
+function lockGain(g, cfg, ctx, best0){
   let gg = g, nets = [];
   for(let k = 0; k < 3; k++){
     if(ctx.lockTrait && k > 0){ gg.turn = g.turn + k; gg.glow = -1; }   // k 手目は k ターン後(布の特性をそのターンのもので見る)。gg は写し
-    const b = bestAction(gg, cfg, ctx);
+    const b = k === 0 && best0 !== undefined ? best0 : bestAction(gg, cfg, ctx);
     if(!b || b.net <= 0) break;
     let net = b.net;
     if(ctx.lockTrait && k > 0 && g.cloth === 'light' && SEW.isTraitTurn(gg.turn + 1)){
@@ -279,7 +317,7 @@ function lockGain(g, cfg, ctx){
 
 // 今の強さで固定してよいか: 順番に出てくる強さ(「？」があれば全部)の中で、今の局面の一番よい手の価値が
 // 一番高い強さか、それとの差が lockSlack 以内の時だけ固定する(すぐ後に最強が来るのに強いで固定し続けないように)
-function lockWorth(g, cfg, ctx){
+function lockWorth(g, cfg, ctx, best0){
   if(ctx.prm.lockSlack === null) return true;
   const set = new Set(g.cycle.filter(p => p !== 'unknown'));
   if(g.cycle.includes('unknown')) ['weak', 'normal', 'strong', 'strongest'].forEach(p => set.add(p));
@@ -287,13 +325,13 @@ function lockWorth(g, cfg, ctx){
   let mine = -Infinity, top = -Infinity;
   for(const p of set){
     g.power = p;
-    const b = bestAction(g, cfg, ctx);
+    const b = p === keep && best0 !== undefined ? best0 : bestAction(g, cfg, ctx);
     const v = b ? b.net : -Infinity;
     if(p === keep) mine = v;
     if(v > top) top = v;
   }
   g.power = keep;
-  if(!set.has(keep)){ const b = bestAction(g, cfg, ctx); mine = b ? b.net : -Infinity; }
+  if(!set.has(keep)){ const b = best0 !== undefined ? best0 : bestAction(g, cfg, ctx); mine = b ? b.net : -Infinity; }
   return mine >= top - ctx.prm.lockSlack;
 }
 
@@ -361,16 +399,20 @@ function cellRow(qt, r, NG, G){
   return out;
 }
 // 2つの表(誤差の枠 e = 0..T・集中力 k = 0..NG で、確率の積の最大)を合わせる
+// (確率0の所は積が最大にならないので飛ばし、最大が1に届いたらそれ以上は見ない。最大値は変わらない)
 function combine(A, B, T, NG){
-  const C = [];
+  const nz = R => R.map(r => { if(!r) return NG + 1; let k = 0; while(k <= NG && !(r[k] > 0)) k++; return k; });
+  const za = nz(A), zb = nz(B), C = [];
   for(let e = 0; e <= T; e++){
     const row = new Float32Array(NG + 1);
     for(let e1 = 0; e1 <= e; e1++){
       const a = A[e1], b = B[e - e1];
       if(!a || !b) continue;
-      for(let k = 0; k <= NG; k++){
+      const z1 = za[e1], z2 = zb[e - e1];
+      for(let k = z1 + z2; k <= NG; k++){
         let m = row[k];
-        for(let k1 = 0; k1 <= k; k1++){ const v = a[k1] * b[k - k1]; if(v > m) m = v; }
+        if(m >= 1) continue;
+        for(let k1 = z1, hi = k - z2; k1 <= hi; k1++){ const v = a[k1] * b[k - k1]; if(v > m) m = v; }
         row[k] = m;
       }
     }
@@ -452,15 +494,19 @@ function endPrep(rv, focus, T, qt, prm){
   return { G, NG, T, cells, loo, all: pre[n - 1] };
 }
 // マス i の残りを r' にした時の、盤の★3の確率(集中力 focus' で)
+// (表 Q から直接読む。cellRow で行を作ると、呼ぶたびに配列を作り直して遅かった)
 function looValue(ep, qt, i, r2, focus2, Wx){
   const k2 = Math.floor(focus2 / ep.G);
   if(k2 < 0) return 0;
-  const k = Math.min(k2, ep.NG), rows = cellRow(qt, r2, k, ep.G), W = Wx === undefined ? ep.loo[i] : Wx;
+  if(r2 < qt.LO || r2 > qt.HI) return 0;
+  const k = Math.min(k2, ep.NG), W = Wx === undefined ? ep.loo[i] : Wx;
+  const off = (r2 - qt.LO) * (qt.FM + 1), FM = qt.FM, G = ep.G, T = ep.T;
   let best = 0;
-  for(let a = 0; a <= Math.min(ep.T, 4); a++){
-    const ra = rows[a];
+  for(let a = 0; a <= Math.min(T, 4); a++){
+    const Qa = qt.Q[a], Wr = W ? W[T - a] : null;
     for(let k1 = 0; k1 <= k; k1++){
-      const v = ra[k1] * (W ? W[ep.T - a][k - k1] : 1);
+      const q = Qa[off + Math.min(FM, k1 * G)];
+      const v = Wr ? q * Wr[k - k1] : q;
       if(v > best) best = v;
     }
   }
@@ -604,7 +650,7 @@ function regenValueSlow(rv2, g, f2, T, qt, prm, ep, i){
 function choose(g, cfg, ctx){
   const m = choosePlain(g, cfg, ctx);
   const P = ctx.prm.bulkMC;
-  if(!P || ctx._roll || m.finish || m.end) return m;
+  if(!P || ctx._roll || m.finish || m.end || m.skill === 'muga') return m;
   return chooseBulkMC(g, cfg, ctx, m, P);
 }
 function choosePlain(g, cfg, ctx){
@@ -612,6 +658,8 @@ function choosePlain(g, cfg, ctx){
   const allYellow = g.base.every((b, i) => Math.abs(b - g.cum[i]) <= SEW.P.yellow);
   if(allYellow && j.total <= ctx.T) return { finish: true, why: '★3の範囲' };
   if(g.focus < 5) return { finish: true, why: '集中力切れ' };
+  // 必殺がたまっていれば、すぐ無我の境地(この後ずっと会心率2倍・消費0。弱い・普通のターンまで待つより★3 が多い。引き継ぎ資料の 9-4)
+  if(g.hsCharged && !g.hsUsed && cfg.level >= SEW.SKILL.muga.lv) return { skill: 'muga', why: 'この後ずっと会心率2倍' };
   if(ctx.prm.endOn && g.base.every((b, i) => Math.abs(b - g.cum[i]) <= ctx.prm.endR)){
     const m = ctx.prm.endMC && !ctx._roll ? chooseEndMC(g, cfg, ctx) : chooseEnd(g, cfg, ctx);
     if(m){ m.end = true; return m; }
@@ -620,11 +668,11 @@ function choosePlain(g, cfg, ctx){
   // 精神統一(固定の最後のターンか、固定していない時)
   const seishin = SEW.SKILL.seishin;
   const upTurn = g.cloth === 'rainbow' && SEW.isTraitTurn(g.turn + 1) && SEW.rainbowMode(g.turn + 1) === 'up';
-  if(seishin.lv <= cfg.level && g.lockRem <= 1 && g.focus >= seishin.cost + 5 && !(ctx.prm.noLockOnUp && upTurn) && lockWorth(g, cfg, ctx)){
-    const lg = lockGain(g, cfg, ctx);
+  if(seishin.lv <= cfg.level && g.lockRem <= 1 && g.focus >= seishin.cost + 5 && !(ctx.prm.noLockOnUp && upTurn) && lockWorth(g, cfg, ctx, best)){
+    const lg = lockGain(g, cfg, ctx, best);
     if(lg > ctx.prm.lockMin) return { skill: 'seishin', why: `固定の得 ${lg.toFixed(1)}` };
     // 削りがまだ多く残っている間は、強い・最強の固定を続ける(小さいマスができて、1手の得が小さく見えても)
-    if(ctx.prm.bulkLock !== null && (g.power === 'strong' || g.power === 'strongest') && best && best.net > ctx.prm.bulkLockNet){
+    if(ctx.prm.bulkLock !== null && (ctx.prm.bulkLockPow || ['strong', 'strongest']).includes(g.power) && best && best.net > ctx.prm.bulkLockNet){
       const rem = g.base.reduce((s, b, i) => s + Math.max(0, b - g.cum[i] - ctx.prm.r1), 0);
       if(rem >= ctx.prm.bulkLock) return { skill: 'seishin', why: `削りが残り ${rem}` };
     }
@@ -687,17 +735,26 @@ function chooseBulkMC(g, cfg, ctx, base, P){
   const sc = [];
   for(const a of ctx.actions){ const e = evalAction(g, cfg, ctx, a); if(e) sc.push(e); }
   sc.sort((x, y) => y.net - x.net);
-  for(const e of sc){ if(cands.length >= P.K) break; push({ skill: e.a.skill, anchor: e.a.anchor, net: e.net }); }
+  // P.gap があれば、ふだんの評価の得が一番よい手より P.gap 以上低い手は候補にしない(試し打ちを際どい手だけにする)
+  const ref = base.net !== undefined ? base.net : (sc.length ? sc[0].net : 0);
+  for(const e of sc){ if(cands.length >= P.K) break; if(P.gap !== undefined && e.net < ref - P.gap) break; push({ skill: e.a.skill, anchor: e.a.anchor, net: e.net }); }
   if(cands.length < 2) return base;
   return mcCompare(g, cfg, ctx, cands, P);
 }
 // 候補(先頭がふだんの手)ごとに同じ種で P.R 本ずつ最後まで打ち切り、ふだんの手より「片方だけ★3」の本数の差で
 // z ≥ P.z はっきり良い手があれば、その手に乗り換える。種は局面と P.seed から作る(同じ局面では同じ手)
-function mcCompare(g, cfg, ctx, cands, P){
-  if(P.batch) return mcRace(g, cfg, ctx, cands, P);
-  const base = cands[0];
+// 画面で試し打ちを複数の Worker に分ける時(sew-ui.js)は、ctx._plan を立てて呼ぶと、試し打ちをせずに
+// 頼むこと(候補・種・設定)を ctx._planReq に残して、ふだんの手を返す。分けた結果から選ぶのは mcPick・mcAlive(下)で、
+// ここと同じ計算なので、本数が同じなら同じ手になる
+function mcSeed(g, P){
   let h = (P.seed + g.turn * 7919 + g.focus * 104729) >>> 0;
   for(let i = 0; i < g.n; i++) h = (Math.imul(h ^ (g.cum[i] + 1000), 2654435761) + i) >>> 0;
+  return h;
+}
+function mcCompare(g, cfg, ctx, cands, P){
+  if(ctx._plan){ ctx._planReq = { cands, P, h: mcSeed(g, P) }; return cands[0]; }
+  if(P.batch) return mcRace(g, cfg, ctx, cands, P);
+  const h = mcSeed(g, P);
   // 本数ごとに全候補を打つ(同じ種どうしで比べるため)。P.ms(ミリ秒)を過ぎたら、そこまでの本数で比べる
   // (遅い端末で待たせすぎないため。本数が減ると乗り換えの基準に届きにくくなり、ふだんの手に近づく)
   const t0 = P.ms ? Date.now() : 0;
@@ -705,58 +762,76 @@ function mcCompare(g, cfg, ctx, cands, P){
   let R = 0;
   ctx._roll = true;
   for(let j = 0; j < P.R; j++){
-    for(let k = 0; k < cands.length; k++) res[k].push(rollout(g, cfg, ctx, cands[k], (h + j * 9973) >>> 0));
+    for(let k = 0; k < cands.length; k++) res[k].push(rollout(g, cfg, ctx, cands[k], mcRunSeed(h, j)));
     R = j + 1;
     if(P.ms && Date.now() - t0 > P.ms) break;
   }
   ctx._roll = false;
-  let best = base, bestZ = -Infinity;
-  for(let k = 1; k < cands.length; k++){
-    let a = 0, b = 0;
-    for(let j = 0; j < R; j++){ if(res[k][j] && !res[0][j]) a++; if(res[0][j] && !res[k][j]) b++; }
+  return mcPick(cands, res, R, P, null);
+}
+function mcRunSeed(h, j){ return (h + j * 9973) >>> 0; }
+// ふだんの手(候補 0)との「片方だけ★3」の数
+function mcDiff(res, k, n){ let a = 0, b = 0; for(let j = 0; j < n; j++){ if(res[k][j] && !res[0][j]) a++; if(res[0][j] && !res[k][j]) b++; } return [a, b]; }
+// R 本までの結果から選ぶ。alive: 残っている候補の番号(null なら全部)
+function mcPick(cands, res, R, P, alive){
+  let best = cands[0], bestZ = -Infinity;
+  const ks = alive || cands.map((c, k) => k).slice(1);
+  for(const k of ks){
+    const [a, b] = mcDiff(res, k, R);
     const z = a + b ? (a - b) / Math.sqrt(a + b) : 0;
     if(z >= P.z && z > bestZ){ bestZ = z; best = cands[k]; }
   }
   return best;
 }
+// 打ち切りあり(mcRace)で、n 本まで打った時に残す候補
+function mcAlive(alive, res, n, P){
+  const rest = P.R - n;
+  return alive.filter(k => {
+    const [a, b] = mcDiff(res, k, n);
+    const zNow = a + b ? (a - b) / Math.sqrt(a + b) : 0;
+    const zMax = (a + rest + b) ? (a + rest - b) / Math.sqrt(a + rest + b) : 0;
+    return zMax >= P.z && zNow > -(P.drop || 1.5);
+  });
+}
 // mcCompare の打ち切りあり版(P.batch 本ずつ回す)。そのつど、ふだんの手との「片方だけ★3」を数え、
 // 残りの本数を全部勝っても z ≥ P.z に届かない候補と、z ≤ −P.drop のはっきり悪い候補は、そこで打ち切る。
 // 乗り換えは、打ち切られずに残った候補を、最後まで回した本数で z ≥ P.z の時だけ(基準は打ち切りなしと同じ)
 function mcRace(g, cfg, ctx, cands, P){
-  const base = cands[0];
-  let h = (P.seed + g.turn * 7919 + g.focus * 104729) >>> 0;
-  for(let i = 0; i < g.n; i++) h = (Math.imul(h ^ (g.cum[i] + 1000), 2654435761) + i) >>> 0;
+  const base = cands[0], h = mcSeed(g, P);
   const t0 = P.ms ? Date.now() : 0;
   const res = cands.map(() => []);
   let alive = cands.map((c, k) => k).slice(1);
-  const dz = (k, n) => { let a = 0, b = 0; for(let j = 0; j < n; j++){ if(res[k][j] && !res[0][j]) a++; if(res[0][j] && !res[k][j]) b++; } return [a, b]; };
   let n = 0;
   ctx._roll = true;
   while(n < P.R && alive.length){
     const to = Math.min(P.R, n + P.batch);
     for(let j = n; j < to; j++){
-      const sd = (h + j * 9973) >>> 0;
+      const sd = mcRunSeed(h, j);
       res[0].push(rollout(g, cfg, ctx, base, sd));
-      for(const k of alive) res[k].push(rollout(g, cfg, ctx, cands[k], sd));
+      for(const k of alive) res[k][j] = rollout(g, cfg, ctx, cands[k], sd);
     }
     n = to;
-    const rest = P.R - n;
-    alive = alive.filter(k => {
-      const [a, b] = dz(k, n);
-      const zNow = a + b ? (a - b) / Math.sqrt(a + b) : 0;
-      const zMax = (a + rest + b) ? (a + rest - b) / Math.sqrt(a + rest + b) : 0;
-      return zMax >= P.z && zNow > -(P.drop || 1.5);
-    });
+    alive = mcAlive(alive, res, n, P);
     if(P.ms && Date.now() - t0 > P.ms) break;
   }
   ctx._roll = false;
-  let best = base, bestZ = -Infinity;
-  for(const k of alive){
-    const [a, b] = dz(k, n);
-    const z = a + b ? (a - b) / Math.sqrt(a + b) : 0;
-    if(z >= P.z && z > bestZ){ bestZ = z; best = cands[k]; }
-  }
-  return best;
+  return mcPick(cands, res, n, P, alive);
+}
+// 試し打ちを分ける時の1つの仕事: 候補 ks を、本数の番号 js で打ち切った結果(★3 なら 1)。out[ks の順][js の順]
+function mcRuns(g, cfg, ctx, cands, h, ks, js){
+  ctx._roll = true;
+  const out = ks.map(k => js.map(j => rollout(g, cfg, ctx, cands[k], mcRunSeed(h, j))));
+  ctx._roll = false;
+  return out;
+}
+// 試し打ちを分ける時の最初の仕事: 推奨手を、試し打ちの手前まで計算する。
+// 戻り値 { move, req }。req があれば、req.cands を試し打ちで比べて選ぶ(無ければ move がそのまま推奨手)
+function plan(g, cfg, ctx){
+  ctx._plan = true; ctx._planReq = null;
+  let move;
+  try{ move = choose(g, cfg, ctx); } finally { ctx._plan = false; }
+  const req = ctx._planReq; ctx._planReq = null;
+  return { move, req };
 }
 function rollout(g, cfg, ctx, first, seed, opts){
   const rng = SEW.makeRng(seed);
@@ -794,9 +869,11 @@ function playGame(recipe, cfg, seed, ctx, opts){
   const rng = SEW.makeRng(seed);
   const g = SEW.newGame(recipe, cfg, rng, opts);
   SEW.beginTurn(g, cfg, rng);
-  let moves = 0;
+  let moves = 0, th = 0;
+  const tr = opts && opts.trace;   // 打った手の並びの指紋も返す(試験の道具で、設定を変えても打ち方が変わらないかを見る用)
   while(!g.finished && moves < 200){
     const m = mc ? chooseMC(g, cfg, ctx, Object.assign({}, mc, { seed: (seed * 131 + moves * 977 + 12345) >>> 0 })) : choose(g, cfg, ctx);
+    if(tr){ const k = (m.finish ? 'F' : m.skill) + (m.anchor ? m.anchor.r * 8 + m.anchor.c : ''); for(let i = 0; i < k.length; i++) th = (Math.imul(th, 31) + k.charCodeAt(i)) >>> 0; th = (Math.imul(th, 31) + 59) >>> 0; }
     const res = SEW.act(g, m, cfg, rng);
     if(!res.ok && !m.finish){ SEW.act(g, { finish: true }, cfg, rng); break; }
     moves++;
@@ -804,10 +881,13 @@ function playGame(recipe, cfg, seed, ctx, opts){
   }
   if(!g.finished) SEW.act(g, { finish: true }, cfg, rng);
   const j = SEW.judge(g);
-  return { star: j.star, total: j.total, focus: g.focus, turns: g.turn };
+  const out = { star: j.star, total: j.total, focus: g.focus, turns: g.turn };
+  if(tr) out.trace = th;
+  return out;
 }
 
-const SEW_AI = { DEF, prepare, choose, chooseMC, bestAction, evalAction, playGame, finishTable, rollout, candidates };
+const SEW_AI = { DEF, GROUP_PARAMS, PARAM_SETS, PARAM_OF, prepare, choose, chooseMC, bestAction, evalAction, playGame, finishTable, rollout, candidates,
+  plan, mcRuns, mcPick, mcAlive };
 root.SEW_AI = SEW_AI;
 if(typeof module !== 'undefined' && module.exports) module.exports = SEW_AI;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

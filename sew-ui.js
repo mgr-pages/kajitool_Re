@@ -15,9 +15,10 @@
 
 const SKEY = 'sewAdvisorStateV1';
 const SEW_LOG_CUR = 'sewAdvisorLogCurV1';
-// 終盤の際どい判断の試し打ち(sew-ai.js の chooseEndMC)。引き継ぎ資料の 9-4
+// 試し打ち(先読み)。終盤の際どい判断(sew-ai.js の chooseEndMC)と、削りの手(chooseBulkMC)。引き継ぎ資料の 9-4
 // ms: 1手の試し打ちの時間の上限(遅い端末で待たせすぎないため。上限に届かなければ、上限なしと同じ手)
-const SEW_AI_PARAMS = { endMC: { K: 3, R: 32, z: 2, lo: 0.02, hi: 0.98, gap: 0.1, seed: 1, ms: 5000 } };
+const SEW_AI_PARAMS = { endMC: { K: 3, R: 32, z: 2, lo: 0.02, hi: 0.98, gap: 0.1, seed: 1, ms: 5000 },
+                        bulkMC: { K: 3, R: 24, z: 2, seed: 7, ms: 5000 } };
 const CAT_JA = { head: 'アタマ', body_upper: 'からだ上', body_lower: 'からだ下', arm: 'ウデ', leg: '足' };
 const CAT_ORDER = ['body_upper', 'body_lower', 'head', 'arm', 'leg'];
 const CLOTH_JA = { normal: '通常の布', regen: '再生布', rainbow: '虹布', light: '光布' };
@@ -99,35 +100,94 @@ const SewLog = (function(){
   return { ev, active, finish };
 })();
 
-/* ===== 推奨手の計算(Worker が使えればそちらで。ファイルを直接開いた時などは画面側で) ===== */
+/* ===== 推奨手の計算(Worker が使えればそちらで。ファイルを直接開いた時などは画面側で) =====
+   Worker は端末の論理コア数(最大8)だけ作る。1つ目の Worker が試し打ちの手前まで計算し(SEW_AI.plan)、
+   試し打ちが要る時は、本数を Worker で分けて打ち(SEW_AI.mcRuns)、画面側で同じ決まり(SEW_AI.mcPick・mcAlive)で選ぶ。
+   本数が同じなら、1つで計算した時と同じ手になる。時間の上限(設定の ms)を過ぎたら、そこまでの本数で選ぶ。
+   Worker が使えない・途中で失敗した時は、画面側で計算する(遅く、計算中は画面が止まる)。 */
 const AI = (function(){
-  let worker = null, seq = 0;
+  let workers = null, seq = 0;
   const wait = new Map();
   const ctxCache = new Map();
+  function fail(){
+    if(workers) workers.forEach(w => { try{ w.terminate(); }catch(e){} });
+    workers = null;
+    for(const w of wait.values()) w({ error: 'worker' });
+    wait.clear();
+  }
   try{
     const me = document.querySelector('script[src^="sew-ui.js"]');
     const v = me ? (me.getAttribute('src').split('?v=')[1] || '') : '';
-    if(location.protocol !== 'file:'){
-      worker = new Worker('sew-worker.js' + (v ? '?v=' + v : ''));
-      worker.onmessage = e => { const w = wait.get(e.data.id); if(w){ wait.delete(e.data.id); w(e.data.move); } };
-      worker.onerror = () => { worker = null; for(const w of wait.values()) w(null); wait.clear(); };
+    if(location.protocol !== 'file:' && typeof Worker !== 'undefined'){
+      const hc = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 2;
+      workers = [];
+      for(let k = 0; k < Math.max(1, Math.min(8, hc)); k++){
+        const w = new Worker('sew-worker.js' + (v ? '?v=' + v : ''));
+        w.onmessage = e => { const f = wait.get(e.data.id); if(f){ wait.delete(e.data.id); f(e.data); } };
+        w.onerror = e => { if(e && e.preventDefault) e.preventDefault(); fail(); };
+        workers.push(w);
+      }
     }
-  }catch(e){ worker = null; }
+  }catch(e){ fail(); }
   function local(g, cfg){
     const key = [g.recipe.id, cfg.level, cfg.needle, cfg.star, cfg.kotsu ? 1 : 0].join('/');
     let ctx = ctxCache.get(key);
     if(!ctx){ ctx = SEW_AI.prepare(g.recipe, cfg, SEW_AI_PARAMS); ctxCache.set(key, ctx); }
     return SEW_AI.choose(SEW.cloneGame(g), cfg, ctx);
   }
-  function choose(g, cfg){
-    if(!worker) return Promise.resolve(local(g, cfg));
-    const id = ++seq;
-    return new Promise(res => {
-      wait.set(id, m => res(m || local(g, cfg)));
-      worker.postMessage({ id, recipeId: g.recipe.id, cfg, prm: SEW_AI_PARAMS, g: Object.assign({}, g, { recipe: undefined }) });
+  function call(w, msg){
+    return new Promise((res, rej) => {
+      const id = ++seq;
+      wait.set(id, d => d.error ? rej(new Error(d.error)) : res(d));
+      w.postMessage(Object.assign({ id }, msg));
     });
   }
-  return { choose };
+  // 試し打ち: 本数の番号 j を Worker に分け、各 Worker は受け持ちの j について候補 ks をすべて打つ
+  async function runMC(base, req){
+    const { cands, P, h } = req, W = workers.length, t0 = Date.now();
+    const res = cands.map(() => []);
+    const deal = async (ks, j0, j1) => {
+      const js = []; for(let j = j0; j < j1; j++) js.push(j);
+      const per = Math.ceil(js.length / W);
+      const parts = await Promise.all(workers.map((w, i) => {
+        const part = js.slice(i * per, (i + 1) * per);
+        return part.length ? call(w, Object.assign({ type: 'runs', cands, h, ks, js: part }, base)).then(r => ({ part, out: r.out })) : null;
+      }));
+      for(const p of parts) if(p) ks.forEach((k, a) => p.part.forEach((j, b) => { res[k][j] = p.out[a][b]; }));
+    };
+    if(!P.batch){
+      const all = cands.map((c, k) => k);
+      let n = 0;
+      while(n < P.R){
+        const to = Math.min(P.R, n + W * 2);
+        await deal(all, n, to); n = to;
+        if(P.ms && Date.now() - t0 > P.ms) break;
+      }
+      return SEW_AI.mcPick(cands, res, n, P, null);
+    }
+    let alive = cands.map((c, k) => k).slice(1), n = 0;
+    while(n < P.R && alive.length){
+      const to = Math.min(P.R, n + P.batch);
+      await deal([0].concat(alive), n, to); n = to;
+      alive = SEW_AI.mcAlive(alive, res, n, P);
+      if(P.ms && Date.now() - t0 > P.ms) break;
+    }
+    return SEW_AI.mcPick(cands, res, n, P, alive);
+  }
+  async function choose(g, cfg){
+    if(!workers) return local(g, cfg);
+    const base = { recipeId: g.recipe.id, cfg, prm: SEW_AI_PARAMS, g: Object.assign({}, g, { recipe: undefined }) };
+    try{
+      const { plan } = await call(workers[0], Object.assign({ type: 'plan' }, base));
+      return plan.req ? await runMC(base, plan.req) : plan.move;
+    }catch(e){
+      console.warn('推奨手の並列計算に失敗したため、画面側で計算します:', e.message);
+      fail();
+      return local(g, cfg);
+    }
+  }
+  function info(){ return { workers: workers ? workers.length : 0 }; }
+  return { choose, info };
 })();
 
 /* ===== 対局を始める ===== */
@@ -175,11 +235,6 @@ function calcRec(){
   S.rec = null; renderAll();
   const g = S.g, my = ++CALC_SEQ;
   setBusy(true);
-  // 必殺がたまっている時: すぐ使う(弱い・普通のターンまで待つより★3 が多い。引き継ぎ資料の 9-4 の必殺)
-  if(g.hsCharged && !g.hsUsed && S.level >= SEW.SKILL.muga.lv){
-    S.rec = { skill: 'muga', why: 'この後ずっと会心率2倍(消費0)' };
-    setBusy(false); renderAll(); save(); return;
-  }
   AI.choose(g, cfgOf()).then(m => {
     if(my !== CALC_SEQ) return;
     S.rec = m; setBusy(false); renderAll(); save();
