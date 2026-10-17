@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /* =====================================================================
    鍛冶: 商材ごとに、今の重みを少しずつ変えた案(候補)のどれが良いかを、打ち切りありで選ぶ(先読みなし・乱数テープ)。
-   ・候補は商材ごとに作る: 重みを1つずつ ×0・×0.5・×1.5・×2(0 の重みは決めた値)、重みの組(ITEM_PARAMS)への置き換え、
-     技を使わない設定(ban)。候補の重みは今の重み(商材の params)に重ねる。
+   ・候補は商材ごとに作る: 重みを1つずつ ×0・×0.5・×0.75・×1.25・×1.5・×2・×3(0 の重みは決めた値)、重みの組(ITEM_PARAMS)への
+     置き換え、技を使わない設定(ban)、2マス残りの総当たり(ldp2)。候補の重みは今の重み(商材の params)に重ねる。
    ・局を区切って回す(tools/kaji-batch.js)。区切りごとに「今の重みだけ大成功」a・「候補だけ大成功」b を数え、
      打ち方が1手も変わらない候補・残りを全部勝っても z = (b − a) / √(a + b) が zSel に届かない候補・z ≤ drop の候補・
      今の z のまま最後まで打った時の見込み(z × √(最後の局数 / 今の局数))が fut に届かない候補は、そこで打つのをやめる。
@@ -29,7 +29,7 @@ function candidatesFor(E, item, start){
   const add = (name, p) => { const k = JSON.stringify(p); if(!seen.has(k)){ seen.add(k); out.push({ name, p }); } };
   for(const k of KEYS){
     const v = cur[k] === undefined ? 0 : cur[k];
-    const vals = v === 0 ? (ZERO_TRY[k] || []) : [0, v * 0.5, v * 1.5, v * 2];
+    const vals = v === 0 ? (ZERO_TRY[k] || []) : [0, v * 0.5, v * 0.75, v * 1.25, v * 1.5, v * 2, v * 3];
     for(const x of vals){ const y = Math.round(x * 10000) / 10000; if(y !== v) add(`${k}=${y}`, Object.assign({}, start || {}, { [k]: y })); }
   }
   // 重みの組へ置き換え(今の商材の params の鍵で、組に無いものは既定に戻す)
@@ -40,6 +40,12 @@ function candidatesFor(E, item, start){
     add(`組${nm}`, p);
   }
   for(const b of BANS) add(`ban ${b.join('+')}`, Object.assign({}, start || {}, { ban: b }));
+  // 2マス残りの総当たり(ldp2)。値は他の商材で使っている組
+  if(!cur.ldp2){
+    add('ldp2 R0.1 C25', Object.assign({}, start || {}, { ldp2: 1, ldp2B: 0, ldp2R: 0.1, ldp2C: 25 }));
+    add('ldp2 R0.1 C40', Object.assign({}, start || {}, { ldp2: 1, ldp2B: 0, ldp2R: 0.1, ldp2C: 40 }));
+    add('ldp2 R0.15 C15 B1', Object.assign({}, start || {}, { ldp2: 1, ldp2B: 1, ldp2R: 0.15, ldp2C: 15 }));
+  }
   return out;
 }
 
