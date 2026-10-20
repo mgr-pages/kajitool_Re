@@ -211,7 +211,9 @@ function enterTurn(){
   const trait = SEW.isTraitTurn(t) ? g.cloth : null;
   const tin = { power: exp ? exp.power : null, shiftCrit: exp ? exp.shiftCrit : false, sure: !!exp,
                 regen: null, glow: null, needRegen: false, needGlow: false };
-  if(trait === 'regen') tin.needRegen = SEW.regenCandidates(g).length > 0;
+  // 再生布: 戻ったマスは選んでもらう(エンジンの見込みと違うマスが戻ることがあると報告があった。利用者 2026-10-20)。
+  // 縫った量が0のマスは戻らないので、1マスでも縫っていれば聞く
+  if(trait === 'regen') tin.needRegen = g.cum.some(c => c > 0);
   if(trait === 'light') tin.needGlow = g.base.some((b, i) => b - g.cum[i] >= SEW.P.yellow + 1);
   S.turnIn = tin; S.phase = 'turn'; S.rec = null; S.move = null; S.pend = []; S.obs = {};
   maybeStartTurn();
@@ -388,8 +390,11 @@ function setCell(i, v, crit){
   g.cum[i] = g.base[i] - v;
   closeNum(); afterEdit();
 }
+// みだれぬいで当たるマスの数(マスの数が4より少なければ全マス)と、まだ入れていないマスの数
+function midareNeed(){ return Math.min(SEW.SKILL.midare.muls.length, S.g.n); }
+function midareLeft(){ return midareNeed() - Object.keys(S.obs).length; }
 function midareDone(){
-  if(!S.midare) return;
+  if(!S.midare || midareLeft() > 0) return;     // 当たったマスを全部入れるまでは終われない
   finishMove();
 }
 // 盤面・集中力を手直しした後: 計算し直す
@@ -644,6 +649,8 @@ function renderBoard(){
   // ターンの始めに盤のマスを選ぶ時(光ったマス・再生したマス)は、選べるマスだけを押せるようにする
   const pick = pickable();
   const midareDoneSet = S.phase === 'input' && S.midare ? new Set(Object.keys(S.obs).map(Number)) : null;
+  // みだれぬいで当たったマスを全部入れたら、ほかのマスは押せないようにする(入れたマスは押して直せる)
+  const midareFull = midareDoneSet && midareLeft() <= 0;
   let h = '';
   for(let r = 1; r <= g.rows; r++) for(let c = 1; c <= g.cols; c++){
     const i = g.cellAt[r * 8 + c];
@@ -651,9 +658,10 @@ function renderBoard(){
     const v = S.phase === 'input' && S.obs[i] !== undefined ? S.obs[i] : rem(i);
     const cls = ['scell', Math.abs(v) <= SEW.P.yellow ? 'yellow' : v < 0 ? 'red' : '',
                  tg.has(i) ? 'tg' : '', i === anchor ? 'anchor' : '', pend.has(i) ? 'pend' : '',
-                 pick ? (pick.has(i) ? 'pick' : 'dis') : '', midareDoneSet && midareDoneSet.has(i) ? 'done' : ''].filter(Boolean).join(' ');
+                 pick ? (pick.has(i) ? 'pick' : 'dis') : '', midareDoneSet && midareDoneSet.has(i) ? 'done' : '',
+                 midareFull && !midareDoneSet.has(i) ? 'dis' : ''].filter(Boolean).join(' ');
     const tags = (g.glow === i && S.phase !== 'turn' ? '<span class="tag glow">光</span>' : '') + (g.shitsuke[i] ? '<span class="tag shi">しつけ</span>' : '');
-    h += `<button class="${cls}" onclick="tapCell(${i})"${pick && !pick.has(i) ? ' disabled' : ''}><span class="no">${i + 1}${pend.has(i) ? '<span class="in">入力</span>' : ''}</span><span class="rem">${prog(i, v)}</span><span class="goal">/${g.base[i]}</span>`
+    h += `<button class="${cls}" onclick="tapCell(${i})"${(pick && !pick.has(i)) || (midareFull && !midareDoneSet.has(i)) ? ' disabled' : ''}><span class="no">${i + 1}${pend.has(i) ? '<span class="in">入力</span>' : ''}</span><span class="rem">${prog(i, v)}</span><span class="goal">/${g.base[i]}</span>`
        + `${tags ? `<span class="tags">${tags}</span>` : ''}</button>`;
   }
   el.innerHTML = h;
@@ -691,7 +699,7 @@ function pickable(){
   const g = S.g, t = S.turnIn;
   if(!g || S.phase !== 'turn' || !t) return null;
   if(t.needGlow && t.glow === null) return new Set(g.base.map((b, i) => i).filter(i => rem(i) >= SEW.P.yellow + 1));
-  if(t.needRegen && !t.regen) return new Set(SEW.regenCandidates(g));
+  if(t.needRegen && !t.regen) return new Set(g.base.map((b, i) => i).filter(i => g.cum[i] > 0));
   return null;
 }
 function tapCell(i){
@@ -704,7 +712,7 @@ function tapCell(i){
       return;
     }
   }
-  if(S.phase === 'input' && S.midare){ openCell(i); return; }
+  if(S.phase === 'input' && S.midare){ if(S.obs[i] === undefined && midareLeft() <= 0) return; openCell(i); return; }
   if(S.phase === 'input' && S.pend.some(p => p.i === i)){ openCell(i); return; }
   openCell(i);       // 手直し
 }
@@ -787,7 +795,11 @@ function syncPrimary(){
     else if(t.needGlow && t.glow === null){ label = '光ったマスをタップしてください'; }
     else { label = '推奨手を計算'; run = () => maybeStartTurn(true); }
   } else if(S.phase === 'input'){
-    if(S.midare){ label = '入力おわり'; run = midareDone; }
+    if(S.midare){
+      const left = midareLeft();
+      if(left > 0){ label = '当たったマスを入力'; sub = `${midareNeed() - left} / ${midareNeed()}`; }
+      else { label = '入力おわり'; run = midareDone; }
+    }
     else if(S.pend.length){ label = '結果を入力'; sub = `${cellName(S.pend[0].i)}` + (S.pend.length > 1 ? `・残り${S.pend.length}マス` : ''); run = () => openCell(S.pend[0].i); }
   } else if(S.phase === 'move'){
     if(S.rec){ label = S.rec.finish ? 'しあげた' : '使った'; sub = S.rec.finish ? '結果を選ぶ' : ''; run = () => useMove(S.rec); }
