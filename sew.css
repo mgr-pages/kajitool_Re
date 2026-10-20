@@ -27,6 +27,7 @@ html.pg-sew{ --bg:#efe7d9; --bg2:#f8f3e8; --panel:#fcf8ef; --line:#c3b394; --sun
 .scell.void{visibility:hidden; pointer-events:none;}
 .scell .no{position:absolute; top:5px; left:7px; font-size:11px; color:var(--dim); font-weight:700;}
 .scell .rem{font-size:34px; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums;}
+.scell .goal{font-size:11px; font-weight:700; color:var(--dim); font-variant-numeric:tabular-nums; margin-top:2px;}
 /* 色はゲームのゲージに合わせる: 黄色 = 基準値の±4以内、赤 = 5以上縫いすぎ */
 .scell.yellow{background:linear-gradient(180deg,#fffbe6, #fbefb8); border-color:#d6b84a;}
 .scell.yellow .rem{color:#7a5a00;}

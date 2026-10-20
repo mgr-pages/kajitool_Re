@@ -6,13 +6,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- 版は index.html が元(tools/stamp.py が書き写す) -->
-<title>裁縫 - 職人アドバイザーV5.20</title>
+<title>裁縫 - 職人アドバイザーV5.21</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=371a2a10">
-<link rel="stylesheet" href="sew.css?v=371a2a10">
+<link rel="stylesheet" href="style.css?v=e1825f2d">
+<link rel="stylesheet" href="sew.css?v=e1825f2d">
 </head>
 <body>
 
@@ -95,7 +95,7 @@
 </div>
 </div>
 
-<!-- 数字の入力(マスの残り・集中力)。候補があれば候補を出し、無い値はテンキーで入れる -->
+<!-- 数字の入力(マスの進み・集中力)。候補があれば候補を出し、無い値はテンキーで入れる -->
 <div class="modal" id="numModal" onclick="if(event.target===this)closeNum()">
   <div class="pad">
     <button class="pad-close" onclick="closeNum()">閉じる</button>
@@ -107,7 +107,7 @@
         <button onclick="nkey('7')">7</button><button onclick="nkey('8')">8</button><button onclick="nkey('9')">9</button>
         <button onclick="nkey('del')" class="del word">1字消す</button>
         <button onclick="nkey('4')">4</button><button onclick="nkey('5')">5</button><button onclick="nkey('6')">6</button>
-        <button onclick="nkey('sign')" class="op" id="nSign">－</button>
+        <button class="op" style="visibility:hidden" tabindex="-1" aria-hidden="true"></button>
         <button onclick="nkey('1')">1</button><button onclick="nkey('2')">2</button><button onclick="nkey('3')">3</button>
         <button onclick="nkey('0')">0</button>
         <button onclick="ncommit()" class="ok" style="grid-column:span 4">決定</button>
@@ -167,10 +167,10 @@
   </div>
 </div>
 
-<script src="sew-recipes.js?v=371a2a10"></script>
-<script src="sew-engine.js?v=371a2a10"></script>
-<script src="sew-ai.js?v=371a2a10"></script>
-<script src="gamelog.js?v=371a2a10"></script>
-<script src="sew-ui.js?v=371a2a10"></script>
+<script src="sew-recipes.js?v=e1825f2d"></script>
+<script src="sew-engine.js?v=e1825f2d"></script>
+<script src="sew-ai.js?v=e1825f2d"></script>
+<script src="gamelog.js?v=e1825f2d"></script>
+<script src="sew-ui.js?v=e1825f2d"></script>
 </body>
 </html>
