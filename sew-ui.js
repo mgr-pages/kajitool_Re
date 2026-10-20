@@ -8,7 +8,8 @@
           布の特性のターン(5・9・13…)なら、再生したマスの残り・光ったマスを入れてもらう。
        2. 入力がそろったら推奨手を自動で計算して出す。
        3. 「使った」を押したら、当たったマスの新しい残りを入れてもらう(候補を出す)。そろったら次のターンへ。
-   ・ゲームの盤面の数字は「残り」(基準値 − 縫った量。縫うと減り、ちょうどで0、縫いすぎるとマイナス)。
+   ・ゲームの盤面の数字は「進み」(縫った量。0 から始まり、基準値に向かって積み上がる。利用者 2026-10-20)。
+     画面に出す数字・入力される数字は進みで、中の計算(エンジン・記録)は残り(基準値 − 縫った量)で持つ(prog・fromProg で変える)。
    ・対局の記録は鍛冶と同じ送り先に送る(gamelog.js の GLOG_QUEUE に貯めて GameLog.flush)。画面には出さない。
    ===================================================================== */
 'use strict';
@@ -35,6 +36,9 @@ function defaultState(){
 function cfgOf(){ return { level: S.level, needle: S.needle, star: S.star, kotsu: S.kotsu }; }
 function recipeOf(id){ return SEW_RECIPES.find(r => r.id === id) || null; }
 function rem(i){ return S.g.base[i] - S.g.cum[i]; }
+// 残り ⇔ 画面に出す進み(縫った量)
+function prog(i, r){ return S.g.base[i] - r; }
+function fromProg(i, v){ return S.g.base[i] - v; }
 function cellName(i){ return 'マス' + (i + 1); }
 
 function save(){
@@ -316,11 +320,11 @@ function openCell(i){
   if(!S.g) return;
   NUM = { kind: 'cell', i, buf: '', neg: false };
   const groups = candidatesFor(i);
-  document.getElementById('numTitle').textContent = `${cellName(i)} の残り`;
+  document.getElementById('numTitle').textContent = `${cellName(i)}(目標 ${S.g.base[i]})`;
   const box = document.getElementById('numCand');
   if(groups.length){
     box.innerHTML = groups.map(gr => `<div class="cand-grp"><span class="cand-h ${gr.cls}">${gr.label}</span><div class="cand-row">`
-      + gr.vals.map(v => `<button class="cand${gr.cls === 'c' ? ' crit' : ''}" onclick="setCell(${i},${v},${gr.cls === 'c'})">${v}</button>`).join('')
+      + gr.vals.map(v => `<button class="cand${gr.cls === 'c' ? ' crit' : ''}" onclick="setCell(${i},${v},${gr.cls === 'c'})">${prog(i, v)}</button>`).join('')
       + '</div></div>').join('') + '<button class="cand-more" onclick="showNumKeys()">一覧に無い値を自分で入力する</button>';
     box.style.display = ''; document.getElementById('numKeys').style.display = 'none';
   } else {
@@ -358,8 +362,8 @@ function ncommit(){
   if(!NUM) return;
   const v = (NUM.neg ? -1 : 1) * (parseInt(NUM.buf || '0', 10));
   if(NUM.kind === 'focus'){ if(v >= 0){ S.g.focus = v; } closeNum(); afterEdit(); return; }
-  if(NUM.kind === 'cell'){ setCell(NUM.i, v, null); return; }
-  if(NUM.kind === 'regen'){ setRegen(NUM.i, v); return; }
+  if(NUM.kind === 'cell'){ setCell(NUM.i, fromProg(NUM.i, v), null); return; }
+  if(NUM.kind === 'regen'){ setRegen(NUM.i, fromProg(NUM.i, v)); return; }
 }
 function recoverFocus(){
   S.g.focus += SEW.P.recover.amount; S.g.recoverUsed = true;
@@ -419,10 +423,10 @@ function setGlow(i){
 function openRegen(i){
   NUM = { kind: 'regen', i, buf: '', neg: false };
   const g = S.g, r = rem(i), vals = [...new Set(SEW.P.regen.map(a => r + Math.min(a, g.cum[i])))].sort((a, b) => b - a);
-  document.getElementById('numTitle').textContent = `${cellName(i)} の残り(再生の後)`;
+  document.getElementById('numTitle').textContent = `${cellName(i)}(目標 ${g.base[i]})`;
   const box = document.getElementById('numCand');
   box.innerHTML = `<div class="cand-grp"><span class="cand-h n">再生の後</span><div class="cand-row">`
-    + vals.map(v => `<button class="cand" onclick="setRegen(${i},${v})">${v}</button>`).join('') + '</div></div>'
+    + vals.map(v => `<button class="cand" onclick="setRegen(${i},${v})">${prog(i, v)}</button>`).join('') + '</div></div>'
     + '<button class="cand-more" onclick="showNumKeys()">一覧に無い値を自分で入力する</button>';
   box.style.display = ''; document.getElementById('numKeys').style.display = 'none';
   updNum(); document.getElementById('numModal').classList.add('show');
@@ -649,7 +653,7 @@ function renderBoard(){
                  tg.has(i) ? 'tg' : '', i === anchor ? 'anchor' : '', pend.has(i) ? 'pend' : '',
                  pick ? (pick.has(i) ? 'pick' : 'dis') : '', midareDoneSet && midareDoneSet.has(i) ? 'done' : ''].filter(Boolean).join(' ');
     const tags = (g.glow === i && S.phase !== 'turn' ? '<span class="tag glow">光</span>' : '') + (g.shitsuke[i] ? '<span class="tag shi">しつけ</span>' : '');
-    h += `<button class="${cls}" onclick="tapCell(${i})"${pick && !pick.has(i) ? ' disabled' : ''}><span class="no">${i + 1}${pend.has(i) ? '<span class="in">入力</span>' : ''}</span><span class="rem">${v}</span>`
+    h += `<button class="${cls}" onclick="tapCell(${i})"${pick && !pick.has(i) ? ' disabled' : ''}><span class="no">${i + 1}${pend.has(i) ? '<span class="in">入力</span>' : ''}</span><span class="rem">${prog(i, v)}</span><span class="goal">/${g.base[i]}</span>`
        + `${tags ? `<span class="tags">${tags}</span>` : ''}</button>`;
   }
   el.innerHTML = h;
