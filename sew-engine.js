@@ -351,7 +351,8 @@ function expectedPower(g){
   const p = g.cycle.length ? g.cycle[g.cycleIdx] : 'normal';
   return p === 'unknown' ? null : { power: p, shiftCrit: false };
 }
-// 再生布で戻るマスの候補: 黄色でないマスのうち「縫った量 ÷ 基準値」が一番大きいマス(同じなら全部)
+// 再生布で戻るマスの候補(エンジンの見込み。applyRegen と同じ): 黄色でないマスのうち「縫った量 ÷ 基準値」が一番大きいマス(同じなら全部)。
+// 画面では使わない(ゲームではこの外のマスが戻ることがあったので、戻ったマスは選んでもらう。sew-ui.js)
 function regenCandidates(g){
   const cand = [];
   for(let i = 0; i < g.n; i++) if(Math.abs(g.base[i] - g.cum[i]) > P.yellow) cand.push(i);
