@@ -45,7 +45,9 @@
 | `tests/sew-play.js` | 画面用の進め方が、乱数で進めた局面と同じになるかの照合 |
 | `tools/sew-try.js`・`sew-trace.js`・`sew-ab.js`・`sew-mc.js` | 裁縫の推奨手の成績・1局の流れ・同じ種での打ち比べ(作業用) |
 | `tools/sew-batch.js`・`sew-select.js` | 裁縫の試験をコアの数だけ並べて回す・レシピごとに設定の組を打ち切りありで選ぶ(作業用) |
+| `tools/sew-click.js` | 裁縫の画面をボタン操作だけで1局打ち、毎手で画面とエンジンの局面を突き合わせる(作業用。Playwright と、画面を出すサーバーが要る) |
 | `tools/pool.js`・`kaji-batch.js` | 試験の共通の並べ方・鍛冶の打ち比べ(先読みなし)を並べて回す(作業用) |
+| `tools/kaji-select.js`・`kaji-confirm.js` | 鍛冶の商材ごとに重みの案を打ち切りありで選ぶ・選んだ案を別の種で確かめる(作業用) |
 
 鍛冶は `engine.js` → `mc-pool.js` → `ui.js`、裁縫は `sew-recipes.js` → `sew-engine.js` → `sew-ai.js` → `gamelog.js` → `sew-ui.js` の順に通常の `<script>` で読み込む。
 裁縫の名前は `SEW`・`SEW_AI`・`SEW_RECIPES` の中に入れてあり、鍛冶の大域変数とはぶつからない。
