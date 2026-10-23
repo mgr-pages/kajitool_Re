@@ -674,9 +674,12 @@ function renderBoard(){
   document.getElementById('cycle').innerHTML = `<span class="cyc-t">${g.turn + 1}ターン目</span>`
     + g.cycle.map((p, k) => `<button class="${k === g.cycleIdx ? 'now' : ''}${p === 'unknown' ? ' q' : ''}" onclick="setCycleIdx(${k})">${POW_SHORT[p]}</button>`).join('');
 }
-// 盤の上で「ここ」と示すマス: 推奨手の起点が欠けた位置なら、同じマスに当たる実在の起点を探す
+// 盤の上で「ここ」と示すマス: 特技の形が布に収まるようにずらした後の起点(ゲームで選ぶマス。たすきぬいは左下・逆たすきぬいは右下・
+// 滝のぼりは下・水平ぬいと大滝のぼりは真ん中)。推奨手の起点は、同じマスに当たる手のうち左上から探して最初に見つけた位置のままで、
+// たすきぬいでは縫わない左上の角を示していた(2026-10-23 の報告)。ずらした後の起点が欠けた位置なら、同じマスに当たる実在の起点を探す
 function anchorCell(g, sk, a){
-  const i = g.cellAt[a.r * 8 + a.c];
+  const ca = SEW.clampAnchor(sk.target, SEW.PATTERNS[sk.target], a, g.rows, g.cols);
+  const i = g.cellAt[ca.r * 8 + ca.c];
   const key = t => t.map(x => x[0] + ':' + x[1]).sort().join(',');
   const want = key(SEW.targetsOf(g, sk, a));
   if(i !== undefined) return i;

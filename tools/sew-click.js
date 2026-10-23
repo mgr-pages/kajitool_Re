@@ -10,12 +10,14 @@
    ・みだれぬい: 当たったマスを全部入れるまで主ボタンが押せず「n / 4」の数が合う。全部入れたら、ほかのマスは押せず入力も開かない。
      入れたマスは押して直せる。
    ・1手目は主ボタンが「推奨手を計算」。
+   ・推奨手の「ここ」の印と「マス◯ を選ぶ」は、縫うマスの1つで、そこを選べば特技の形がずれずに同じマスに当たる
+     (たすきぬいなら左下・逆たすきぬいなら右下。2026-10-23 の報告: たすきぬいで縫わないマスを示していた)。
    使い方: 画面を http://localhost:8123/ で出しておく(例: npx http-server -p 8123 -c-1 -s .。環境変数 SEW_URL で変えられる)。
      node tools/sew-click.js レシピ名 種 [画像の出力先] [画像の名前の頭]
-   画像の出力先を渡すと、戻ったマスを選ぶ所・みだれぬいの入力の途中と後・結果の画面を撮る。
+   画像の出力先を渡すと、戻ったマスを選ぶ所・みだれぬいの入力の途中と後・最初のたすきぬいか逆たすきぬいの推奨・結果の画面を撮る。
    画像は日本語のフォントで撮る(中国語のフォントは使わない。引き継ぎ資料の 6 の「画面の画像」)。
    最後の行: レシピ・種・回数(power ぬいパワーを選んだ・regen 戻ったマスを選んだ・regenOutside そのうち見込みの外・cand 候補のボタンで入れた・
-   keys テンキーで入れた・midare みだれぬい・moves 使った手)・終わりの局面・ページのエラー。
+   keys テンキーで入れた・midare みだれぬい・moves 使った手・diag 推奨手のたすきぬい・逆たすきぬい)・終わりの局面・ページのエラー。
    記録の送信(script.google.com)は止めて打つので、終わりに「Failed to load resource」が出ることがある(アプリのエラーではない)。
    ===================================================================== */
 const { chromium } = require('playwright');
@@ -140,6 +142,26 @@ const URL = process.env.SEW_URL || 'http://localhost:8123/sew.html';
       await shot(p, 'outcome');
       await p.locator('#outcomeRow button.cur').click();
       break;
+    }
+    // 推奨手の「ここ」の印と「マス◯ を選ぶ」: 縫うマスの1つで、そこを選べば形がずれずに同じマスに当たること(2026-10-23 の報告:
+    // たすきぬいで縫わないマスを示していた)
+    const pt = await p.evaluate(m => {
+      const sk = SEW.SKILL[m.skill];
+      if (!sk.target || !m.anchor) return null;
+      const g = S.g, key = t => t.map(x => x[0]).sort().join(',');
+      const on = [...document.querySelectorAll('#sboard button.scell.anchor')].map(b => +b.getAttribute('onclick').match(/\d+/)[0]);
+      const txt = (document.querySelector('#rec .rec-skill .tgt') || {}).textContent || '';
+      const i = on[0], pos = i === undefined ? null : g.recipe.cells[i];
+      const ca = pos && SEW.clampAnchor(sk.target, SEW.PATTERNS[sk.target], { r: pos.r, c: pos.c }, g.rows, g.cols);
+      return { name: sk.name, diag: sk.target.startsWith('diag'), on, txt, cell: i,
+               sewn: i !== undefined && SEW.targetsOf(g, sk, m.anchor).some(x => x[0] === i),
+               same: !!pos && key(SEW.targetsOf(g, sk, { r: pos.r, c: pos.c })) === key(SEW.targetsOf(g, sk, m.anchor)),
+               noShift: !!ca && ca.r === pos.r && ca.c === pos.c };
+    }, rec);
+    if (pt) {
+      if (pt.on.length !== 1 || !pt.sewn || !pt.same || !pt.noShift || pt.txt !== `マス${pt.cell + 1} を選ぶ`)
+        problem('推奨手の選ぶマスが違う', JSON.stringify(pt));
+      if (pt.diag) { if (!cnt.diag) await shot(p, 'diag'); cnt.diag = (cnt.diag || 0) + 1; }
     }
     const res = await p.evaluate(m => { const r = SEW.act(__sim, { skill: m.skill, anchor: m.anchor }, cfgOf(), __rng);
       return { ok: r.ok, vals: r.events.filter(e => e.kind === 'sew' || e.kind === 'hogushi').map(e => [e.cell, __sim.base[e.cell] - __sim.cum[e.cell]]) }; }, rec);
