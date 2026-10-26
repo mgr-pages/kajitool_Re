@@ -41,8 +41,8 @@ html.pg-sew{ --bg:#efe7d9; --bg2:#f8f3e8; --panel:#fcf8ef; --line:#c3b394; --sun
 /* 結果の入力待ちのマス(鍛冶の画面と同じく「入力」の札を付けて、枠を点滅させる) */
 .scell.pend{border-color:var(--ember) !important; animation:needpulse 1.3s ease-in-out infinite;}
 .scell .no .in{margin-left:5px; background:var(--ember); color:#fbf3e0; font-size:10px; padding:1px 6px; border-radius:8px; vertical-align:1px;}
-/* ターンの始めに盤から選ぶ時(光ったマス・再生したマス): 鍛冶の点灯マスの選択と同じく、選べるマスの枠を点滅させ、
-   選べないマスは薄くして押せなくする(点滅は style.css の litblink) */
+/* 盤から選ぶ時(ターンの始めの光ったマス・再生したマス、再生布で手を使った直後の再生したマス): 鍛冶の点灯マスの選択と同じく、
+   選べるマスの枠を点滅させ、選べないマスは薄くして押せなくする(点滅は style.css の litblink) */
 .scell.pick{outline:2px solid var(--acc); outline-offset:-2px; animation:litblink 1.1s ease-in-out infinite;}
 .scell.dis{opacity:.35; cursor:default;}
 .scell:disabled{color:var(--text);}
@@ -52,6 +52,8 @@ html.pg-sew{ --bg:#efe7d9; --bg2:#f8f3e8; --panel:#fcf8ef; --line:#c3b394; --sun
 .scell .tag{font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:8px;}
 .scell .tag.glow{background:#f7d24a; color:#5a4300;}
 .scell .tag.shi{background:#dcd6f2; color:var(--sew);}
+/* 再生布で戻ったマス(選んだ後) */
+.scell .tag.regen{background:#d6ecdc; color:var(--green);}
 
 /* 誤差の合計(全マスが黄色の時だけ出す) */
 .ssum{text-align:center; font-size:13px; color:var(--dim); margin:10px 0 4px;}
