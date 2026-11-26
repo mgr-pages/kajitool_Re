@@ -23,8 +23,12 @@ const { SEW_RECIPES } = require(path.join(__dirname, '..', 'sew-recipes.js'));
 // 指紋は、照合した時(2026-10-14)のレシピ(番号 559 まで、529件)で作る。レシピを足したり数値を直したりしても
 // ルールの指紋が変わらないように(ルールのテストなので、入力のレシピは固定する)。
 // 2026-10-16 に直した烈風のブーツの左下(100)は、照合した時の値(110)で打つ。
+// 2026-11-24 に布を直した装備Lv120 の8件も、照合した時の布で打つ。
+const OLD_CLOTH = { 乱破の忍び装束下: 'light', 乱破の手甲: 'light', プロディトスーツ下: 'rainbow', プロディトグローブ: 'rainbow',
+                    プロディトシューズ: 'rainbow', オスクトルローブ下: 'regen', オスクトルグローブ: 'regen', オスクトルブーツ: 'regen' };
 const RECIPES = SEW_RECIPES.filter(r => r.id <= 559).map(r => r.name !== '烈風のブーツ' ? r
-  : Object.assign({}, r, { cells: r.cells.map(c => c.r === 2 && c.c === 1 ? Object.assign({}, c, { base: 110 }) : c) }));
+  : Object.assign({}, r, { cells: r.cells.map(c => c.r === 2 && c.c === 1 ? Object.assign({}, c, { base: 110 }) : c) }))
+  .map(r => OLD_CLOTH[r.name] ? Object.assign({}, r, { cloth: OLD_CLOTH[r.name] }) : r);
 
 const EXPECT = { ref: 'e8b39cb0', app: 'f159d6b3' };
 const GAMES = 3000;
